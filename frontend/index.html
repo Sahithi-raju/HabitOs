@@ -1,0 +1,2205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>HabitOS — Smart Habit Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   VARIABLES & RESET
+═══════════════════════════════════════════ */
+:root{
+  --bg:#080612;--bg2:#0f0d1a;--bg3:#161326;--bg4:#1c1833;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8e3f8;--muted:#6b6585;--dim:#9b94b8;
+  --accent:#8b5cf6;--accent2:#06b6d4;
+  --success:#10b981;--warn:#f59e0b;--danger:#ef4444;
+  --mic:#ec4899;--mic2:#f43f5e;
+  --rem:#f97316; /* reminder orange */
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'Syne',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#4c1d95;border-radius:3px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)!important;box-shadow:0 0 0 3px rgba(139,92,246,0.15)}
+button{cursor:pointer;font-family:var(--sans)}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 20% 0%,rgba(139,92,246,0.12) 0%,transparent 60%),radial-gradient(ellipse 60% 50% at 80% 100%,rgba(6,182,212,0.08) 0%,transparent 50%),radial-gradient(ellipse 40% 30% at 50% 50%,rgba(249,115,22,0.04) 0%,transparent 60%);pointer-events:none;z-index:0}
+
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+.header{position:sticky;top:0;z-index:100;background:rgba(8,6,18,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 1.5rem}
+.header-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px;gap:1rem}
+.logo{font-family:var(--serif);font-size:1.5rem;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-0.03em}
+.logo span{color:var(--accent)}
+.header-stats{display:flex;gap:0.6rem;align-items:center}
+.stat-chip{display:flex;align-items:center;gap:0.4rem;background:var(--bg3);border:1px solid var(--border2);border-radius:50px;padding:0.3rem 0.9rem;font-size:0.78rem;font-weight:600;letter-spacing:0.03em;white-space:nowrap}
+.stat-chip .val{color:var(--accent);font-size:0.9rem;font-weight:700}
+.rem-chip .val{color:var(--rem)}
+#date-str{font-size:0.72rem;color:var(--muted);display:none}
+@media(min-width:540px){#date-str{display:block}}
+
+/* ═══════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════ */
+.tabs{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;scrollbar-width:none;z-index:10;position:relative}
+.tabs::-webkit-scrollbar{display:none}
+.tab-btn{border:none;background:transparent;padding:0.85rem 1.3rem;color:var(--muted);font-size:0.8rem;font-weight:600;font-family:var(--sans);white-space:nowrap;letter-spacing:0.05em;border-bottom:2px solid transparent;transition:all 0.2s;position:relative}
+.tab-btn:hover{color:var(--dim)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(139,92,246,0.08)}
+.tab-badge{position:absolute;top:6px;right:6px;background:var(--rem);color:#fff;border-radius:50%;width:16px;height:16px;font-size:0.58rem;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1}
+
+/* ═══════════════════════════════════════════
+   MAIN
+═══════════════════════════════════════════ */
+.main{max-width:1100px;margin:0 auto;padding:1.5rem 1rem 5rem;position:relative;z-index:1}
+.tab-panel{display:none;animation:fadeUp 0.3s ease}
+.tab-panel.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.section-title{font-family:var(--serif);font-size:1.3rem;font-weight:600;color:#fff;margin-bottom:0.25rem}
+.section-sub{color:var(--muted);font-size:0.78rem;margin-bottom:1.4rem}
+
+/* ═══════════════════════════════════════════
+   TASK CARDS
+═══════════════════════════════════════════ */
+#tasks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem;margin-bottom:1.5rem}
+.task-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:16px;padding:1.2rem;transition:border-color 0.2s,transform 0.15s;position:relative;overflow:hidden}
+.task-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(139,92,246,0.04),transparent);pointer-events:none}
+.task-card:hover{transform:translateY(-1px)}
+.task-card.status-over{border-color:rgba(239,68,68,0.4)}
+.task-card.status-under{border-color:rgba(245,158,11,0.4)}
+.task-card.status-ok{border-color:rgba(16,185,129,0.35)}
+.task-card.listening{border-color:rgba(236,72,153,0.6)!important;box-shadow:0 0 20px rgba(236,72,153,0.15)}
+.task-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.9rem}
+.task-meta{display:flex;align-items:center;gap:0.65rem}
+.task-icon{font-size:1.5rem;line-height:1}
+.task-name{font-family:var(--serif);font-size:0.95rem;font-weight:600;color:#f0ebff}
+.task-limit{font-size:0.7rem;color:var(--muted);margin-top:2px}
+.badge{padding:0.15rem 0.5rem;border-radius:5px;font-size:0.62rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase}
+.badge-high{background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3)}
+.badge-medium{background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3)}
+.badge-low{background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3)}
+.badge-custom{background:rgba(6,182,212,0.15);color:#22d3ee;border:1px solid rgba(6,182,212,0.3)}
+.task-input-row{display:flex;gap:0.5rem;align-items:center}
+.task-input{flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:9px;padding:0.55rem 0.8rem;color:var(--text);font-size:0.9rem;font-family:var(--sans);transition:border-color 0.2s}
+.task-unit{font-size:0.72rem;color:var(--muted);min-width:36px;text-align:right}
+.mic-btn-inline{width:32px;height:32px;border-radius:50%;border:none;background:rgba(236,72,153,0.12);color:var(--mic);font-size:0.85rem;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
+.mic-btn-inline:hover{background:rgba(236,72,153,0.25);transform:scale(1.1)}
+.mic-btn-inline.active{background:var(--mic);color:#fff;animation:micPulse 1s ease infinite}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(236,72,153,0.5)}50%{box-shadow:0 0 0 8px rgba(236,72,153,0)}}
+.task-status{margin-top:0.65rem;padding:0.4rem 0.75rem;border-radius:8px;font-size:0.73rem;display:none}
+.task-status.show{display:block}
+.task-status.over{background:rgba(239,68,68,0.1);color:#f87171}
+.task-status.under{background:rgba(245,158,11,0.1);color:#fbbf24}
+.task-status.ok{background:rgba(16,185,129,0.1);color:#34d399}
+.task-del{position:absolute;top:0.75rem;right:0.75rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;border-radius:6px;padding:0.15rem 0.45rem;font-size:0.7rem;opacity:0;transition:opacity 0.2s}
+.task-card:hover .task-del{opacity:1}
+
+/* Score */
+.score-bar-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;gap:1rem;flex-wrap:wrap}
+.score-display{font-size:1.6rem;font-weight:700;font-family:var(--serif);background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.score-label{font-size:0.75rem;color:var(--muted)}
+
+/* ═══════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════ */
+.btn{border:none;border-radius:11px;padding:0.7rem 1.4rem;font-weight:600;font-family:var(--sans);font-size:0.88rem;transition:all 0.2s;letter-spacing:0.03em}
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;width:100%;padding:0.9rem;font-size:0.95rem;box-shadow:0 4px 20px rgba(124,58,237,0.3)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(124,58,237,0.4)}
+.btn-secondary{background:rgba(255,255,255,0.06);border:1px solid var(--border2);color:var(--dim)}
+.btn-secondary:hover{background:rgba(255,255,255,0.1)}
+.btn-accent{background:rgba(6,182,212,0.15);border:1px solid rgba(6,182,212,0.35);color:#22d3ee}
+.btn-accent:hover{background:rgba(6,182,212,0.25)}
+.btn-voice{background:linear-gradient(135deg,rgba(236,72,153,0.2),rgba(244,63,94,0.2));border:1px solid rgba(236,72,153,0.4);color:var(--mic);display:flex;align-items:center;gap:0.5rem}
+.btn-voice:hover{background:linear-gradient(135deg,rgba(236,72,153,0.35),rgba(244,63,94,0.35))}
+.btn-voice.recording{background:linear-gradient(135deg,var(--mic),var(--mic2));color:#fff;border-color:transparent;animation:recordPulse 1.5s ease infinite}
+@keyframes recordPulse{0%,100%{box-shadow:0 0 0 0 rgba(236,72,153,0.4)}50%{box-shadow:0 0 0 12px rgba(236,72,153,0)}}
+.btn-reminder{background:rgba(249,115,22,0.15);border:1px solid rgba(249,115,22,0.4);color:var(--rem)}
+.btn-reminder:hover{background:rgba(249,115,22,0.25)}
+.btn-danger-soft{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:0.35rem 0.75rem;font-size:0.78rem;border-radius:8px}
+.btn-danger-soft:hover{background:rgba(239,68,68,0.2)}
+.btn-edit-soft{background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.3);color:#22d3ee;padding:0.35rem 0.75rem;font-size:0.78rem;border-radius:8px}
+.btn-edit-soft:hover{background:rgba(6,182,212,0.2)}
+.fab-row{display:flex;gap:0.75rem;margin-bottom:1.2rem;flex-wrap:wrap}
+
+/* ═══════════════════════════════════════════
+   REMINDERS TAB — FULL SYSTEM
+═══════════════════════════════════════════ */
+
+/* Permission banner */
+.notif-banner{
+  border-radius:12px;padding:0.9rem 1.1rem;margin-bottom:1.2rem;
+  font-size:0.82rem;display:flex;align-items:center;gap:0.75rem;
+}
+.notif-banner.warn{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);color:#fbbf24}
+.notif-banner.granted{background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);color:#34d399}
+.notif-banner.denied{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:#f87171}
+.notif-banner-btn{background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;border-radius:8px;padding:0.3rem 0.8rem;font-size:0.75rem;font-weight:700;white-space:nowrap;flex-shrink:0}
+
+/* Reminder stats row */
+.rem-stats{display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.4rem}
+.rem-stat-pill{flex:1;min-width:90px;border-radius:12px;padding:0.85rem;text-align:center}
+.rsp-val{font-family:var(--serif);font-size:1.4rem;font-weight:700}
+.rsp-lbl{font-size:0.68rem;color:var(--muted);margin-top:2px}
+
+/* Category filter chips */
+.cat-filter{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.2rem}
+.cat-chip{padding:0.3rem 0.9rem;border-radius:50px;font-size:0.75rem;font-weight:600;border:1px solid var(--border2);background:transparent;color:var(--muted);transition:all 0.15s}
+.cat-chip.active{background:rgba(249,115,22,0.15);border-color:rgba(249,115,22,0.4);color:var(--rem)}
+.cat-chip:hover{border-color:var(--border2);color:var(--dim)}
+
+/* Reminder card */
+.rem-card{
+  background:rgba(255,255,255,0.03);
+  border:1px solid var(--border);
+  border-radius:14px;padding:1rem 1.2rem;
+  margin-bottom:0.75rem;
+  display:flex;align-items:center;gap:1rem;
+  transition:all 0.2s;position:relative;overflow:hidden;
+}
+.rem-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px}
+.rem-card.cat-health::before{background:#10b981}
+.rem-card.cat-work::before{background:#8b5cf6}
+.rem-card.cat-water::before{background:#06b6d4}
+.rem-card.cat-sleep::before{background:#7c3aed}
+.rem-card.cat-custom::before{background:var(--rem)}
+.rem-card.disabled{opacity:0.45}
+.rem-card.firing{animation:remFire 0.6s ease}
+@keyframes remFire{0%,100%{background:rgba(255,255,255,0.03)}50%{background:rgba(249,115,22,0.12)}}
+
+/* Toggle switch */
+.rem-toggle{width:38px;height:21px;border-radius:11px;border:none;position:relative;flex-shrink:0;transition:background 0.2s;cursor:pointer}
+.rem-toggle.on{background:var(--rem)}
+.rem-toggle.off{background:rgba(255,255,255,0.15)}
+.rem-toggle::after{content:'';position:absolute;top:2.5px;left:2.5px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left 0.2s}
+.rem-toggle.on::after{left:19.5px}
+
+/* Reminder info */
+.rem-info{flex:1;min-width:0}
+.rem-header{display:flex;align-items:center;gap:0.6rem;margin-bottom:0.2rem;flex-wrap:wrap}
+.rem-label{font-weight:600;font-size:0.9rem;color:var(--text);font-family:var(--serif)}
+.rem-cat-tag{font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:0.1rem 0.45rem;border-radius:4px}
+.rem-time-row{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap}
+.rem-time-badge{font-size:0.82rem;font-weight:700;color:var(--rem);background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.25);border-radius:7px;padding:0.15rem 0.55rem}
+.rem-repeat{font-size:0.72rem;color:var(--muted)}
+.rem-next{font-size:0.7rem;color:var(--dim);margin-top:0.25rem}
+
+/* Actions */
+.rem-actions{display:flex;gap:0.4rem;flex-shrink:0}
+
+/* Overdue / upcoming indicator */
+.rem-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rem-dot.upcoming{background:var(--rem);animation:dotPulse 2s infinite}
+.rem-dot.past{background:var(--muted)}
+.rem-dot.active{background:var(--success);animation:dotPulse 1.5s infinite}
+@keyframes dotPulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* ─── ADD/EDIT REMINDER MODAL ──────────── */
+.rem-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(10px);z-index:1000;align-items:center;justify-content:center;padding:1rem}
+.rem-modal-overlay.open{display:flex;animation:fadeIn 0.2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.rem-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:22px;padding:2rem;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;animation:slideUp 0.3s ease}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
+.rem-modal-title{font-family:var(--serif);font-size:1.25rem;font-weight:700;color:#fff;margin-bottom:0.25rem}
+.rem-modal-sub{color:var(--muted);font-size:0.78rem;margin-bottom:1.5rem}
+.form-group{margin-bottom:1.1rem}
+.form-label{display:block;font-size:0.75rem;font-weight:600;color:var(--dim);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.45rem}
+.form-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:10px;padding:0.65rem 0.9rem;color:var(--text);font-size:0.9rem;font-family:var(--sans);transition:border-color 0.2s}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem}
+.day-check-grid{display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem}
+.day-check{padding:0.35rem 0.65rem;border-radius:7px;font-size:0.72rem;font-weight:700;border:1px solid var(--border2);background:transparent;color:var(--muted);transition:all 0.15s}
+.day-check.sel{background:rgba(249,115,22,0.2);border-color:rgba(249,115,22,0.5);color:var(--rem)}
+.day-check:hover{border-color:var(--border2);color:var(--dim)}
+.cat-select-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-top:0.5rem}
+.cat-sel-btn{padding:0.5rem;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,0.02);font-size:0.75rem;font-weight:600;color:var(--muted);transition:all 0.15s;text-align:center}
+.cat-sel-btn.sel{border-color:var(--rem);background:rgba(249,115,22,0.12);color:var(--rem)}
+.sound-row{display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem}
+.sound-btn{padding:0.35rem 0.75rem;border-radius:7px;font-size:0.73rem;font-weight:600;border:1px solid var(--border2);background:transparent;color:var(--muted);transition:all 0.15s}
+.sound-btn.sel{background:rgba(139,92,246,0.15);border-color:rgba(139,92,246,0.4);color:var(--accent)}
+.rem-modal-footer{display:flex;gap:0.75rem;margin-top:1.5rem}
+.rem-modal-footer .btn{flex:1}
+
+/* ─── EMPTY STATE ──────────────────────── */
+.empty-state{text-align:center;padding:3.5rem 2rem;background:rgba(255,255,255,0.01);border:1px dashed var(--border2);border-radius:16px}
+.empty-state .es-icon{font-size:2.8rem;margin-bottom:0.75rem}
+.empty-state p{color:var(--muted);font-size:0.85rem}
+
+/* ─── AI SUGGESTIONS ──────────────────── */
+.ai-suggestions-section{margin-top:2rem}
+.suggestion{border-radius:14px;padding:1.2rem;margin-bottom:1rem;display:flex;gap:0.9rem;align-items:flex-start}
+.suggestion.warning{background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2)}
+.suggestion.success{background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2)}
+.sug-icon{font-size:1.6rem;line-height:1;flex-shrink:0}
+.sug-title{font-family:var(--serif);font-size:0.95rem;font-weight:600;margin-bottom:0.25rem}
+.suggestion.warning .sug-title{color:#fbbf24}
+.suggestion.success .sug-title{color:#34d399}
+.sug-body{font-size:0.8rem;color:var(--dim);line-height:1.6}
+.sug-tomorrow{margin-top:0.6rem;padding:0.4rem 0.75rem;border-radius:8px;background:rgba(255,255,255,0.04);color:#c4b5fd;font-size:0.75rem;display:inline-block}
+/* Add as reminder button */
+.sug-add-rem{margin-top:0.6rem;padding:0.3rem 0.75rem;border-radius:7px;background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.3);color:var(--rem);font-size:0.73rem;font-weight:600;cursor:pointer;font-family:var(--sans)}
+.sug-add-rem:hover{background:rgba(249,115,22,0.2)}
+
+/* ═══════════════════════════════════════════
+   VOICE HUD
+═══════════════════════════════════════════ */
+.voice-unsupported{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:0.9rem 1.1rem;font-size:0.82rem;color:#fbbf24;margin-bottom:1rem;display:none}
+.voice-fab{position:fixed;bottom:2rem;right:2rem;z-index:500;width:60px;height:60px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--mic),var(--mic2));color:#fff;font-size:1.4rem;box-shadow:0 4px 24px rgba(236,72,153,0.45);transition:all 0.25s;display:flex;align-items:center;justify-content:center}
+.voice-fab:hover{transform:scale(1.1);box-shadow:0 6px 32px rgba(236,72,153,0.6)}
+.voice-fab.recording{animation:fabPulse 1.2s ease infinite}
+@keyframes fabPulse{0%,100%{box-shadow:0 4px 24px rgba(236,72,153,0.5),0 0 0 0 rgba(236,72,153,0.4)}50%{box-shadow:0 4px 24px rgba(236,72,153,0.5),0 0 0 18px rgba(236,72,153,0)}}
+.voice-fab-label{position:fixed;bottom:5.5rem;right:2rem;z-index:500;background:rgba(236,72,153,0.9);color:#fff;font-size:0.7rem;font-weight:700;letter-spacing:0.08em;padding:0.3rem 0.7rem;border-radius:50px;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(6px);transition:all 0.2s}
+.voice-fab:hover~.voice-fab-label,.voice-fab-label.show{opacity:1;transform:none}
+.voice-hud{position:fixed;bottom:0;left:0;right:0;z-index:600;background:rgba(8,6,18,0.97);border-top:1px solid rgba(236,72,153,0.35);backdrop-filter:blur(24px);padding:1.2rem 1.5rem 1.5rem;transform:translateY(100%);transition:transform 0.35s cubic-bezier(.4,0,.2,1)}
+.voice-hud.open{transform:none}
+.voice-hud-inner{max-width:700px;margin:0 auto}
+.hud-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.hud-title{font-family:var(--serif);font-size:1rem;font-weight:700;color:var(--mic)}
+.hud-close{background:rgba(255,255,255,0.06);border:1px solid var(--border2);color:var(--dim);border-radius:8px;padding:0.3rem 0.75rem;font-size:0.78rem}
+.waveform{display:flex;align-items:center;gap:3px;height:48px;margin-bottom:1rem}
+.wave-bar{width:4px;border-radius:2px;background:var(--mic)}
+.waveform.idle .wave-bar{height:4px;opacity:0.3}
+.waveform.active .wave-bar{animation:waveAnim 0.8s ease infinite}
+.wave-bar:nth-child(1){animation-delay:0s;--h:10px}.wave-bar:nth-child(2){animation-delay:0.07s;--h:18px}.wave-bar:nth-child(3){animation-delay:0.14s;--h:30px}.wave-bar:nth-child(4){animation-delay:0.21s;--h:40px}.wave-bar:nth-child(5){animation-delay:0.28s;--h:44px}.wave-bar:nth-child(6){animation-delay:0.35s;--h:38px}.wave-bar:nth-child(7){animation-delay:0.21s;--h:44px}.wave-bar:nth-child(8){animation-delay:0.14s;--h:40px}.wave-bar:nth-child(9){animation-delay:0.07s;--h:30px}.wave-bar:nth-child(10){animation-delay:0s;--h:20px}.wave-bar:nth-child(11){animation-delay:0.07s;--h:30px}.wave-bar:nth-child(12){animation-delay:0.14s;--h:40px}.wave-bar:nth-child(13){animation-delay:0.21s;--h:44px}.wave-bar:nth-child(14){animation-delay:0.28s;--h:32px}.wave-bar:nth-child(15){animation-delay:0.35s;--h:14px}
+@keyframes waveAnim{0%,100%{height:6px}50%{height:calc(8px + var(--h,24px))}}
+.hud-transcript{background:rgba(255,255,255,0.03);border:1px solid rgba(236,72,153,0.2);border-radius:12px;padding:0.9rem 1rem;min-height:52px;font-size:0.9rem;color:var(--text);margin-bottom:0.8rem;line-height:1.5}
+.hud-transcript.has-text{border-color:rgba(236,72,153,0.45)}
+.hud-interim{color:var(--mic);opacity:0.7;font-style:italic}
+.hud-status{font-size:0.75rem;color:var(--muted);margin-bottom:1rem;min-height:18px}
+.hud-status.listening{color:var(--mic)}.hud-status.processing{color:var(--warn)}.hud-status.success{color:var(--success)}.hud-status.error{color:var(--danger)}
+.hud-parsed{display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.9rem}
+.parsed-chip{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:50px;padding:0.3rem 0.75rem;font-size:0.75rem;color:#34d399;font-weight:600;display:flex;align-items:center;gap:0.4rem}
+.hud-actions{display:flex;gap:0.75rem}
+.hud-actions .btn{flex:1;padding:0.65rem}
+.btn-mic-stop{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171}
+.btn-apply{background:linear-gradient(135deg,var(--success),#059669);color:#fff}
+.btn-apply:disabled{opacity:0.4;cursor:not-allowed}
+.hud-tip{font-size:0.72rem;color:var(--muted);margin-top:0.75rem;padding:0.6rem 0.9rem;background:rgba(255,255,255,0.02);border-radius:8px;line-height:1.5}
+.hud-tip strong{color:var(--accent2)}
+.voice-log-section{margin-top:1.5rem}
+.voice-log-title{font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.6rem}
+.voice-log{display:flex;flex-direction:column;gap:0.4rem;max-height:180px;overflow-y:auto}
+.voice-log-item{display:flex;align-items:flex-start;gap:0.65rem;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:9px;padding:0.55rem 0.8rem;font-size:0.75rem}
+.vlog-icon{flex-shrink:0;color:var(--mic);font-size:0.85rem;margin-top:1px}
+.vlog-text{color:var(--dim);flex:1;line-height:1.4}
+.vlog-time{color:var(--muted);font-size:0.65rem;flex-shrink:0;margin-top:2px}
+
+/* ═══════════════════════════════════════════
+   WEEKLY REPORT & AI INSIGHTS
+═══════════════════════════════════════════ */
+.chart-card{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:1.4rem;margin-bottom:1.2rem}
+.chart-title{font-size:0.75rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:1.1rem}
+.chart-wrap{position:relative;height:220px}
+.summary-row{display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.summary-pill{flex:1;min-width:100px;border-radius:14px;padding:1rem;text-align:center}
+.summary-pill .pval{font-family:var(--serif);font-size:1.5rem;font-weight:700}
+.summary-pill .plbl{font-size:0.68rem;color:var(--muted);margin-top:3px}
+.data-table{width:100%;border-collapse:collapse;font-size:0.76rem}
+.data-table th{text-align:left;padding:0.5rem 0.6rem;color:var(--muted);border-bottom:1px solid var(--border2);font-weight:600;white-space:nowrap}
+.data-table td{padding:0.5rem 0.6rem;border-bottom:1px solid var(--border);color:var(--dim);white-space:nowrap}
+.data-table td:first-child{color:var(--muted)}
+.data-table .score-td{color:var(--accent);font-weight:700;text-align:center}
+.table-wrap{overflow-x:auto;border-radius:12px}
+.insight-card{border-radius:14px;padding:1.25rem;margin-bottom:1rem;display:flex;gap:0.85rem;align-items:flex-start}
+.insight-icon{font-size:1.8rem;line-height:1;flex-shrink:0}
+.insight-title{font-family:var(--serif);font-size:1rem;font-weight:600;margin-bottom:0.35rem}
+.insight-body{font-size:0.82rem;color:var(--dim);line-height:1.65}
+.prog-row{margin-bottom:0.9rem}
+.prog-head{display:flex;justify-content:space-between;margin-bottom:0.3rem}
+.prog-name{font-size:0.8rem;color:var(--dim)}
+.prog-val{font-size:0.73rem;color:var(--muted)}
+.prog-bar{height:6px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width 0.6s cubic-bezier(.4,0,.2,1)}
+
+/* ═══════════════════════════════════════════
+   ADD TASK MODAL
+═══════════════════════════════════════════ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:999;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex;animation:fadeIn 0.2s ease}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:2rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s ease}
+.modal-title{font-family:var(--serif);font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:0.25rem}
+.modal-sub{color:var(--muted);font-size:0.78rem;margin-bottom:1.5rem}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:0.4rem;margin-top:0.5rem}
+.emoji-btn{aspect-ratio:1;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);font-size:1.2rem;transition:all 0.15s;display:flex;align-items:center;justify-content:center}
+.emoji-btn:hover,.emoji-btn.sel{background:rgba(139,92,246,0.2);border-color:var(--accent);transform:scale(1.1)}
+.priority-row{display:flex;gap:0.5rem}
+.priority-btn{flex:1;padding:0.5rem;border-radius:8px;font-size:0.75rem;font-weight:700;letter-spacing:0.05em;border:1px solid transparent;transition:all 0.15s}
+.priority-btn[data-p="high"]{background:rgba(239,68,68,0.1);color:#f87171;border-color:rgba(239,68,68,0.25)}
+.priority-btn[data-p="medium"]{background:rgba(245,158,11,0.1);color:#fbbf24;border-color:rgba(245,158,11,0.25)}
+.priority-btn[data-p="low"]{background:rgba(16,185,129,0.1);color:#34d399;border-color:rgba(16,185,129,0.25)}
+.priority-btn.sel{outline:2px solid currentColor;outline-offset:1px}
+.lowwarn-toggle{display:flex;align-items:center;gap:0.75rem;padding:0.75rem;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border)}
+.toggle{width:40px;height:22px;border-radius:11px;border:none;background:var(--muted);position:relative;transition:background 0.2s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left 0.2s}
+.toggle.on::after{left:21px}
+.modal-footer{display:flex;gap:0.75rem;margin-top:1.5rem}
+.modal-footer .btn{flex:1}
+
+/* ═══════════════════════════════════════════
+   TOAST & NOTIFICATION POPUP
+═══════════════════════════════════════════ */
+.toast{position:fixed;bottom:6rem;right:1.5rem;z-index:9999;background:#1e1b2e;border:1px solid var(--accent);border-radius:12px;padding:0.8rem 1.2rem;color:var(--text);font-size:0.85rem;font-weight:600;transform:translateY(100px);opacity:0;transition:all 0.3s cubic-bezier(.4,0,.2,1);pointer-events:none;max-width:320px}
+.toast.show{transform:none;opacity:1}
+.toast.voice-toast{border-color:var(--mic)}
+.toast.rem-toast{border-color:var(--rem)}
+
+/* Reminder ring popup */
+.rem-popup{
+  position:fixed;top:5rem;right:1.5rem;z-index:9998;
+  background:var(--bg2);border:1px solid rgba(249,115,22,0.5);
+  border-radius:16px;padding:1.1rem 1.3rem;
+  width:320px;box-shadow:0 8px 32px rgba(249,115,22,0.2);
+  transform:translateX(360px);opacity:0;
+  transition:all 0.35s cubic-bezier(.4,0,.2,1);
+}
+.rem-popup.show{transform:none;opacity:1}
+.rem-popup-head{display:flex;align-items:center;gap:0.7rem;margin-bottom:0.5rem}
+.rem-popup-icon{font-size:1.4rem}
+.rem-popup-title{font-family:var(--serif);font-weight:700;color:var(--rem);font-size:0.95rem}
+.rem-popup-body{color:var(--dim);font-size:0.82rem;margin-bottom:0.8rem;line-height:1.5}
+.rem-popup-actions{display:flex;gap:0.5rem}
+.rem-popup-actions .btn{flex:1;padding:0.4rem;font-size:0.75rem}
+.btn-snooze{background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#fbbf24}
+.btn-dismiss{background:rgba(255,255,255,0.06);border:1px solid var(--border2);color:var(--dim)}
+
+.streak-fire{display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media(max-width:600px){
+  .header-inner{height:56px}.logo{font-size:1.2rem}.stat-chip{padding:0.25rem 0.7rem;font-size:0.72rem}
+  .form-row{grid-template-columns:1fr}.emoji-grid{grid-template-columns:repeat(6,1fr)}
+  .summary-pill{min-width:80px}.voice-fab{bottom:1.2rem;right:1.2rem;width:52px;height:52px;font-size:1.2rem}
+  .hud-actions{flex-wrap:wrap}.rem-popup{width:calc(100vw - 2rem);right:1rem}
+  .cat-select-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">✦ Habit<span>OS</span></div>
+    <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+      <span id="date-str"></span>
+      <div class="header-stats">
+        <div class="stat-chip"><span class="streak-fire">🔥</span>&nbsp;<span class="val" id="h-streak">0</span> days</div>
+        <div class="stat-chip">⚡ <span class="val" id="h-score">0</span>%</div>
+        <div class="stat-chip rem-chip">🔔 <span class="val" id="h-reminders">0</span> active</div>
+        <div class="stat-chip" style="cursor:pointer;background:rgba(139,92,246,0.12);border-color:rgba(139,92,246,0.3)" onclick="document.querySelector('[data-tab=insights]').click()">🤖 AI</div>
+        <button onclick="handleBackendLogout()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;border-radius:50px;padding:0.3rem 0.9rem;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:var(--sans);white-space:nowrap">👋 Logout</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="tasks">📋 Smart Tasks</button>
+  <button class="tab-btn" data-tab="reminders" id="tab-rem-btn">🔔 Reminders<span class="tab-badge" id="tab-rem-badge" style="display:none"></span></button>
+  <button class="tab-btn" data-tab="report">📊 Weekly Report</button>
+  <button class="tab-btn" data-tab="insights">🤖 AI Insights</button>
+  <button class="tab-btn" data-tab="backend">🔌 Backend</button>
+</nav>
+
+<main class="main">
+
+  <!-- ─── SMART TASKS ──────────────────────── -->
+  <section id="tab-tasks" class="tab-panel active">
+    <div class="score-bar-wrap">
+      <div>
+        <div class="section-title">Today's Habits</div>
+        <div class="section-sub" id="today-sub">Track your daily activities</div>
+      </div>
+      <div style="text-align:right">
+        <div class="score-display" id="live-score">0%</div>
+        <div class="score-label">Productivity Score</div>
+      </div>
+    </div>
+    <div class="voice-unsupported" id="voice-unsupported">⚠️ Voice input not supported. Use <strong>Chrome, Edge, or Safari</strong>.</div>
+    <div class="fab-row">
+      <button class="btn btn-accent" onclick="openModal()">＋ Add Custom Task</button>
+      <button class="btn btn-voice" id="voice-main-btn" onclick="toggleVoiceHUD()"><span id="voice-main-icon">🎤</span><span id="voice-main-label">Voice Input</span></button>
+      <button class="btn btn-secondary" onclick="resetToday()">↺ Reset</button>
+    </div>
+    <div id="tasks-grid"></div>
+    <div class="voice-log-section" id="voice-log-section" style="display:none">
+      <div class="voice-log-title">🎤 Voice Command History</div>
+      <div class="voice-log" id="voice-log"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:1.5rem" onclick="saveToday()">💾 Save Today's Data</button>
+  </section>
+
+  <!-- ─── REMINDERS ───────────────────────── -->
+  <section id="tab-reminders" class="tab-panel">
+    <div class="score-bar-wrap">
+      <div>
+        <div class="section-title">Reminders</div>
+        <div class="section-sub">Set, manage and get notified for your habits</div>
+      </div>
+      <button class="btn btn-reminder" onclick="openRemModal()">＋ Add Reminder</button>
+    </div>
+
+    <!-- Notification permission banner -->
+    <div id="notif-banner" class="notif-banner warn" style="display:none">
+      <span style="font-size:1.2rem">🔔</span>
+      <div style="flex:1">
+        <strong>Enable browser notifications</strong> to receive reminder alerts even when the app is in the background.
+      </div>
+      <button class="notif-banner-btn" onclick="requestNotifPermission()">Enable</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="rem-stats" id="rem-stats"></div>
+
+    <!-- Category filter -->
+    <div class="cat-filter" id="cat-filter">
+      <button class="cat-chip active" data-cat="all" onclick="filterReminders('all',this)">All</button>
+      <button class="cat-chip" data-cat="health" onclick="filterReminders('health',this)">🏃 Health</button>
+      <button class="cat-chip" data-cat="water" onclick="filterReminders('water',this)">💧 Water</button>
+      <button class="cat-chip" data-cat="work" onclick="filterReminders('work',this)">📚 Work</button>
+      <button class="cat-chip" data-cat="sleep" onclick="filterReminders('sleep',this)">😴 Sleep</button>
+      <button class="cat-chip" data-cat="custom" onclick="filterReminders('custom',this)">✨ Custom</button>
+    </div>
+
+    <!-- Reminder list -->
+    <div id="reminders-list"></div>
+
+    <!-- AI Suggestions section -->
+    <div class="ai-suggestions-section">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.9rem">🤖 AI Suggested Reminders</div>
+      <div id="ai-suggestions-container"></div>
+    </div>
+  </section>
+
+  <!-- ─── WEEKLY REPORT ───────────────────── -->
+  <section id="tab-report" class="tab-panel">
+    <div class="section-title">Weekly Report</div>
+    <div class="section-sub">View any week's habit data from your history</div>
+
+    <!-- Week Picker Controls -->
+    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border2);border-radius:16px;padding:1.2rem;margin-bottom:1.2rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:center">
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.5rem">Select Week</div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <button onclick="shiftWeek(-1)" style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:0.4rem 0.8rem;color:var(--dim);cursor:pointer;font-size:1rem">◀</button>
+          <div id="week-label" style="flex:1;text-align:center;font-size:0.85rem;font-weight:600;color:var(--text);background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:0.4rem 0.8rem"></div>
+          <button onclick="shiftWeek(1)" id="week-next-btn" style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:0.4rem 0.8rem;color:var(--dim);cursor:pointer;font-size:1rem">▶</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button onclick="goToCurrentWeek()" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);border-radius:8px;padding:0.5rem 1rem;color:#c4b5fd;font-size:0.78rem;font-weight:600;cursor:pointer">📅 This Week</button>
+        <button onclick="renderReport()" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:0.5rem 1rem;color:#34d399;font-size:0.78rem;font-weight:600;cursor:pointer">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- Date Lookup -->
+    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border2);border-radius:16px;padding:1.2rem;margin-bottom:1.2rem">
+      <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.75rem">🔍 Look Up a Specific Date</div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+        <input type="date" id="date-lookup-input" style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:0.5rem 0.75rem;color:var(--text);font-family:var(--sans);font-size:0.85rem;flex:1;min-width:160px"/>
+        <button onclick="lookupDate()" style="background:rgba(139,92,246,0.2);border:1px solid rgba(139,92,246,0.4);border-radius:8px;padding:0.5rem 1.2rem;color:#c4b5fd;font-size:0.82rem;font-weight:600;cursor:pointer">View Day</button>
+      </div>
+      <div id="date-lookup-result" style="margin-top:0.75rem"></div>
+    </div>
+
+    <div id="report-container"></div>
+  </section>
+  <!-- ─── BACKEND ─────────────────────────── -->
+  <section id="tab-backend" class="tab-panel">
+    <div class="score-bar-wrap"īī>
+      <div>
+        <div class="section-title">Backend Connection</div>
+        <div class="section-sub">Connect to database to save your habits permanently</div>
+      </div>
+      <div id="backend-status-chip" style="display:flex;align-items:center;gap:0.5rem;background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:50px;padding:0.4rem 1rem;font-size:0.78rem;font-weight:600">
+        <span id="backend-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted)"></span>
+        <span id="backend-status-text">Not connected</span>
+      </div>
+    </div>
+
+    <!-- Login Card -->
+    <div id="backend-login-card" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:20px;padding:2rem;max-width:460px;margin:0 auto 1.5rem">
+      <div style="text-align:center;margin-bottom:1.5rem">
+        <div style="font-size:2.5rem;margin-bottom:0.5rem">🔐</div>
+        <div style="font-family:var(--serif);font-size:1.2rem;font-weight:700;color:#fff">Login to Backend</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:0.25rem">Your data will be saved permanently to the database</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" id="be-username" type="text" placeholder="e.g. pavan" value="pavan"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="be-password" type="password" placeholder="Your password" value="123456"/>
+      </div>
+      <button class="btn btn-primary" onclick="handleBackendLogin()" style="margin-top:0.5rem">
+        🔌 Connect to Backend
+      </button>
+    </div>
+
+    <!-- Connected Card (hidden until logged in) -->
+    <div id="backend-connected-card" style="display:none;max-width:460px;margin:0 auto">
+
+      <!-- User info -->
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:16px;padding:1.2rem 1.4rem;margin-bottom:1rem;display:flex;align-items:center;gap:1rem">
+        <div style="font-size:2rem">👤</div>
+        <div>
+          <div style="font-weight:700;color:#34d399;font-family:var(--serif)" id="be-username-display">pavan</div>
+          <div style="font-size:0.75rem;color:var(--muted)">Connected to HabitOS Database</div>
+        </div>
+        <button onclick="handleBackendLogout()" style="margin-left:auto;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:8px;padding:0.35rem 0.75rem;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:var(--sans)">Logout</button>
+      </div>
+
+      <!-- Action buttons -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem">
+        <button class="btn" onclick="window.saveToBackend()" style="background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(79,70,229,0.3));border:1px solid rgba(139,92,246,0.5);color:#c4b5fd;padding:1.2rem;border-radius:14px;font-size:0.9rem">
+          <div style="font-size:1.8rem;margin-bottom:0.4rem">💾</div>
+          Save Today's Data
+        </button>
+        <button class="btn" onclick="window.loadFromBackend()" style="background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(6,182,212,0.1));border:1px solid rgba(6,182,212,0.4);color:#22d3ee;padding:1.2rem;border-radius:14px;font-size:0.9rem">
+          <div style="font-size:1.8rem;margin-bottom:0.4rem">📥</div>
+          Load Today's Data
+        </button>
+      </div>
+
+      <!-- Sync history -->
+      <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.3rem">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">📋 Sync Log</div>
+        <div id="sync-log" style="display:flex;flex-direction:column;gap:0.4rem;max-height:200px;overflow-y:auto">
+          <div style="font-size:0.78rem;color:var(--muted);text-align:center;padding:1rem">No syncs yet</div>
+        </div>
+      </div>
+
+      <!-- API Docs link -->
+      <div style="margin-top:1rem;text-align:center">
+        <a href="http://127.0.0.1:8000/docs" target="_blank" style="font-size:0.78rem;color:var(--accent);text-decoration:none;opacity:0.7">📖 View API Docs →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── AI INSIGHTS ─────────────────────── -->
+  <section id="tab-insights" class="tab-panel">
+    <div class="section-title">AI Insights</div>
+    <div class="section-sub">Pattern analysis from your recent habits</div>
+    <div id="insights-container"></div>
+  </section>
+
+</main>
+
+<!-- FLOATING VOICE FAB -->
+<button class="voice-fab" id="voice-fab" onclick="toggleVoiceHUD()">🎤</button>
+<div class="voice-fab-label" id="fab-label">Voice Input</div>
+
+<!-- VOICE HUD -->
+<div class="voice-hud" id="voice-hud">
+  <div class="voice-hud-inner">
+    <div class="hud-row1">
+      <div class="hud-title">🎤 Voice Input</div>
+      <button class="hud-close btn" onclick="closeVoiceHUD()">✕ Close</button>
+    </div>
+    <div class="waveform idle" id="waveform">
+      <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+    </div>
+    <div class="hud-transcript" id="hud-transcript"><span style="color:var(--muted);font-size:0.85rem">Press "Start Listening" and speak…</span></div>
+    <div class="hud-status" id="hud-status"></div>
+    <div class="hud-parsed" id="hud-parsed"></div>
+    <div class="hud-actions">
+      <button class="btn btn-mic-stop" id="btn-stop" onclick="stopRecording()" style="display:none">⏹ Stop</button>
+      <button class="btn btn-voice" id="btn-start" onclick="startRecording()">🎤 Start Listening</button>
+      <button class="btn btn-apply" id="btn-apply" onclick="applyVoiceData()" disabled>✅ Apply Values</button>
+    </div>
+    <div class="hud-tip">💡 <strong>Say anything natural:</strong> "3 glasses" · "slept well" · "phone for two hours" · "studied all day" · "ate three meals" · "ran for thirty minutes" · "didn't exercise" · "eight hours rest"</div>
+  </div>
+</div>
+
+<!-- REMINDER POPUP (fires on trigger) -->
+<div class="rem-popup" id="rem-popup">
+  <div class="rem-popup-head">
+    <span class="rem-popup-icon" id="popup-icon">🔔</span>
+    <div class="rem-popup-title" id="popup-title">Reminder</div>
+  </div>
+  <div class="rem-popup-body" id="popup-body"></div>
+  <div class="rem-popup-actions">
+    <button class="btn btn-snooze" onclick="snoozeReminder()">⏰ Snooze 5 min</button>
+    <button class="btn btn-dismiss" onclick="dismissReminder()">✓ Dismiss</button>
+  </div>
+</div>
+
+<!-- ADD/EDIT REMINDER MODAL -->
+<div class="rem-modal-overlay" id="rem-modal-overlay" onclick="closeRemModalOutside(event)">
+  <div class="rem-modal">
+    <div class="rem-modal-title" id="rem-modal-title">🔔 Add Reminder</div>
+    <div class="rem-modal-sub">Get notified at the right time every day</div>
+
+    <div class="form-group">
+      <label class="form-label">Reminder Label</label>
+      <input class="form-input" id="rm-label" type="text" placeholder="e.g. Drink water, Take medicine…" maxlength="60"/>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Time</label>
+        <input class="form-input" id="rm-time" type="time" value="08:00"/>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Icon / Emoji</label>
+        <input class="form-input" id="rm-icon" type="text" placeholder="🔔" maxlength="4" value="🔔"/>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:1.1rem">
+      <label class="form-label">Repeat Days</label>
+      <div class="day-check-grid" id="day-check-grid">
+        <button class="day-check sel" data-d="0" onclick="toggleDay(this)">Sun</button>
+        <button class="day-check sel" data-d="1" onclick="toggleDay(this)">Mon</button>
+        <button class="day-check sel" data-d="2" onclick="toggleDay(this)">Tue</button>
+        <button class="day-check sel" data-d="3" onclick="toggleDay(this)">Wed</button>
+        <button class="day-check sel" data-d="4" onclick="toggleDay(this)">Thu</button>
+        <button class="day-check sel" data-d="5" onclick="toggleDay(this)">Fri</button>
+        <button class="day-check sel" data-d="6" onclick="toggleDay(this)">Sat</button>
+        <button class="day-check" style="border-style:dashed" onclick="toggleAllDays(this)">Every day</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <div class="cat-select-grid" id="cat-select-grid">
+        <button class="cat-sel-btn sel" data-cat="health" onclick="selectRemCat('health',this)">🏃 Health</button>
+        <button class="cat-sel-btn" data-cat="water" onclick="selectRemCat('water',this)">💧 Water</button>
+        <button class="cat-sel-btn" data-cat="work" onclick="selectRemCat('work',this)">📚 Work</button>
+        <button class="cat-sel-btn" data-cat="sleep" onclick="selectRemCat('sleep',this)">😴 Sleep</button>
+        <button class="cat-sel-btn" data-cat="custom" onclick="selectRemCat('custom',this)">✨ Custom</button>
+        <button class="cat-sel-btn" data-cat="health" onclick="selectRemCat('health',this)">💊 Medicine</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Alert Sound</label>
+      <div class="sound-row">
+        <button class="sound-btn sel" data-s="bell" onclick="selectSound('bell',this)">🔔 Bell</button>
+        <button class="sound-btn" data-s="chime" onclick="selectSound('chime',this)">🎵 Chime</button>
+        <button class="sound-btn" data-s="ding" onclick="selectSound('ding',this)">✨ Ding</button>
+        <button class="sound-btn" data-s="none" onclick="selectSound('none',this)">🔇 Silent</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Note (optional)</label>
+      <input class="form-input" id="rm-note" type="text" placeholder="Additional details…" maxlength="100"/>
+    </div>
+
+    <div class="rem-modal-footer">
+      <button class="btn btn-secondary" onclick="closeRemModal()">Cancel</button>
+      <button class="btn btn-reminder" style="width:auto;flex:2;border-radius:11px" onclick="saveReminder()">💾 Save Reminder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TASK MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">✦ Add Custom Task</div>
+    <div class="modal-sub">Create a new habit to track daily</div>
+    <div class="form-group"><label class="form-label">Task Name</label><input class="form-input" id="f-name" type="text" placeholder="e.g. Meditate, Exercise…" maxlength="40"/></div>
+    <div class="form-group"><label class="form-label">Choose Icon</label><div class="emoji-grid" id="emoji-grid"></div><input class="form-input" id="f-icon" type="text" placeholder="Or type any emoji" maxlength="4" style="margin-top:0.6rem"/></div>
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Daily Limit</label><input class="form-input" id="f-limit" type="number" min="0.5" step="0.5" placeholder="e.g. 8"/></div>
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Unit</label><input class="form-input" id="f-unit" type="text" placeholder="hours / glasses" maxlength="15"/></div>
+    </div>
+    <div class="form-group" style="margin-top:1.1rem"><label class="form-label">Priority</label>
+      <div class="priority-row">
+        <button class="priority-btn sel" data-p="high" onclick="selectPriority('high')">🔴 High</button>
+        <button class="priority-btn" data-p="medium" onclick="selectPriority('medium')">🟡 Medium</button>
+        <button class="priority-btn" data-p="low" onclick="selectPriority('low')">🟢 Low</button>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Warn Type</label>
+      <div class="lowwarn-toggle"><button class="toggle on" id="lowwarn-toggle" onclick="toggleLowWarn()"></button>
+        <div><div id="lowwarn-label" style="font-size:0.82rem;color:var(--dim);font-weight:600">Warn if below limit</div><div id="lowwarn-hint" style="font-size:0.72rem;color:var(--muted);margin-top:2px">Good for: water, sleep, homework</div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" style="width:auto;flex:2" onclick="addCustomTask()">＋ Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════
+   CORE STATE & CONSTANTS
+════════════════════════════════════════════ */
+/* ════════════════════════════════════════════
+   AUTH GUARD — Redirect to login if not signed in
+════════════════════════════════════════════ */
+(function authGuard(){
+  const token = localStorage.getItem('habitos_token');
+  // Build login URL relative to current page location
+  const loginURL = window.location.href.replace(/[^/]*$/, 'login.html');
+  if(!token){
+    window.location.replace(loginURL);
+    return;
+  }
+  // Verify token with backend (non-blocking)
+  fetch('http://localhost:8000/api/habits/tasks',{
+    headers:{'Authorization':'Bearer '+token}
+  }).then(r=>{
+    if(r.status === 401){
+      localStorage.removeItem('habitos_token');
+      localStorage.removeItem('habitos_user');
+      window.location.replace(loginURL);
+    }
+  }).catch(()=>{
+    // Backend offline — do NOT redirect, stay on page
+  });
+})();
+
+const STORAGE_KEY  = 'habitOS_data';
+const TASKS_KEY    = 'habitOS_tasks';
+const REM_KEY      = 'habitOS_reminders';
+const TODAY        = new Date().toISOString().split('T')[0];
+let charts={}, modalPriority='high', modalLowWarn=true, selectedEmoji='⭐';
+let recognition=null, isRecording=false, finalTranscript='', parsedVoiceData={}, currentVoiceTaskId=null, voiceLog=[];
+let remEditId=null, remSelectedCat='health', remSelectedDays=[0,1,2,3,4,5,6], remSelectedSound='bell';
+let activeFilter='all', remCheckInterval=null, currentPopupRemId=null, snoozeTimers={};
+
+const DEFAULT_TASKS=[
+  {id:'eat',name:'Eat Food',icon:'🍽️',unit:'meals',limit:3,lowWarn:true,priority:'high',isDefault:true},
+  {id:'water',name:'Drink Water',icon:'💧',unit:'glasses',limit:8,lowWarn:true,priority:'high',isDefault:true},
+  {id:'mobile',name:'Mobile Usage',icon:'📱',unit:'hours',limit:3,lowWarn:false,priority:'medium',isDefault:true},
+  {id:'play',name:'Played',icon:'⚽',unit:'hours',limit:2,lowWarn:false,priority:'low',isDefault:true},
+  {id:'homework',name:'Homework',icon:'📚',unit:'hours',limit:2,lowWarn:true,priority:'high',isDefault:true},
+  {id:'sleep',name:'Sleep',icon:'😴',unit:'hours',limit:8,lowWarn:true,priority:'high',isDefault:true},
+];
+
+const EMOJI_LIST=['🏃','🧘','💊','📖','🎸','🎨','🍎','🧃','☕','🥤','🏋️','🚴','🌿','🧠','💪','🛁','🌅','✍️','🎯','🎮','🛌','🚶','🏊','🧹','🌟','⚡'];
+
+const CAT_COLORS={health:'#10b981',water:'#06b6d4',work:'#8b5cf6',sleep:'#7c3aed',custom:'#f97316'};
+const CAT_LABELS={health:'Health',water:'Water',work:'Work',sleep:'Sleep',custom:'Custom'};
+const DAY_NAMES=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+/* ════════════════════════════════════════════
+   STORAGE
+════════════════════════════════════════════ */
+const storage={
+  getAll:()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return{}}},
+  getDay:(d)=>{const a=storage.getAll();return a[d]||null},
+  saveDay:(d,t)=>{const a=storage.getAll();a[d]={date:d,tasks:t,savedAt:new Date().toISOString()};localStorage.setItem(STORAGE_KEY,JSON.stringify(a))},
+  getLast7:()=>{const a=storage.getAll(),r=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const k=d.toISOString().split('T')[0];if(a[k])r.push(a[k])}return r},
+  getLast3:()=>{const a=storage.getAll(),r=[];for(let i=3;i>=1;i--){const d=new Date();d.setDate(d.getDate()-i);const k=d.toISOString().split('T')[0];if(a[k])r.push(a[k])}return r},
+  getStreak:()=>{const a=storage.getAll();let s=0;for(let i=0;i<365;i++){const d=new Date();d.setDate(d.getDate()-i);const k=d.toISOString().split('T')[0];if(a[k])s++;else break}return s},
+};
+
+/* ════════════════════════════════════════════
+   TASKS
+════════════════════════════════════════════ */
+const getTasks=()=>{try{const r=localStorage.getItem(TASKS_KEY);if(r)return JSON.parse(r)}catch{}return[...DEFAULT_TASKS]};
+const saveTasks=(t)=>localStorage.setItem(TASKS_KEY,JSON.stringify(t));
+let TASKS=getTasks();
+
+/* ════════════════════════════════════════════
+   REMINDERS STORAGE
+════════════════════════════════════════════ */
+function getReminders(){try{return JSON.parse(localStorage.getItem(REM_KEY)||'[]')}catch{return[]}}
+function saveReminders(r){localStorage.setItem(REM_KEY,JSON.stringify(r));updateReminderHeaderCount()}
+
+function updateReminderHeaderCount(){
+  const rems=getReminders();
+  const active=rems.filter(r=>r.enabled).length;
+  document.getElementById('h-reminders').textContent=active;
+  const badge=document.getElementById('tab-rem-badge');
+  // count upcoming in next 30 min
+  const upcoming=getUpcomingReminders(30);
+  if(upcoming.length>0){badge.style.display='flex';badge.textContent=upcoming.length}
+  else badge.style.display='none';
+}
+
+function getUpcomingReminders(withinMinutes=30){
+  const rems=getReminders();
+  const now=new Date();
+  const nowMin=now.getHours()*60+now.getMinutes();
+  const todayDay=now.getDay();
+  return rems.filter(r=>{
+    if(!r.enabled)return false;
+    if(!r.days.includes(todayDay))return false;
+    const[h,m]=r.time.split(':').map(Number);
+    const remMin=h*60+m;
+    return remMin>=nowMin&&remMin<=nowMin+withinMinutes;
+  });
+}
+
+/* ════════════════════════════════════════════
+   REMINDER MODAL
+════════════════════════════════════════════ */
+function openRemModal(prefill=null){
+  remEditId=null; remSelectedCat='health'; remSelectedDays=[0,1,2,3,4,5,6]; remSelectedSound='bell';
+  document.getElementById('rem-modal-title').textContent='🔔 Add Reminder';
+  document.getElementById('rm-label').value=prefill||'';
+  document.getElementById('rm-time').value='08:00';
+  document.getElementById('rm-icon').value='🔔';
+  document.getElementById('rm-note').value='';
+  // Reset days
+  document.querySelectorAll('.day-check').forEach(b=>{if(b.dataset.d!==undefined)b.classList.add('sel')});
+  // Reset cat
+  document.querySelectorAll('.cat-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.cat==='health'&&b.textContent.includes('Health')));
+  // Reset sound
+  document.querySelectorAll('.sound-btn').forEach(b=>b.classList.toggle('sel',b.dataset.s==='bell'));
+  document.getElementById('rem-modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('rm-label').focus(),100);
+}
+
+function openRemModalEdit(id){
+  const rems=getReminders();
+  const r=rems.find(x=>x.id===id);if(!r)return;
+  remEditId=id; remSelectedCat=r.category; remSelectedDays=[...r.days]; remSelectedSound=r.sound||'bell';
+  document.getElementById('rem-modal-title').textContent='✏️ Edit Reminder';
+  document.getElementById('rm-label').value=r.label;
+  document.getElementById('rm-time').value=r.time;
+  document.getElementById('rm-icon').value=r.icon;
+  document.getElementById('rm-note').value=r.note||'';
+  document.querySelectorAll('.day-check').forEach(b=>{if(b.dataset.d!==undefined)b.classList.toggle('sel',remSelectedDays.includes(parseInt(b.dataset.d)))});
+  document.querySelectorAll('.cat-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.cat===remSelectedCat));
+  document.querySelectorAll('.sound-btn').forEach(b=>b.classList.toggle('sel',b.dataset.s===remSelectedSound));
+  document.getElementById('rem-modal-overlay').classList.add('open');
+}
+
+function closeRemModal(){document.getElementById('rem-modal-overlay').classList.remove('open')}
+function closeRemModalOutside(e){if(e.target===document.getElementById('rem-modal-overlay'))closeRemModal()}
+
+function toggleDay(btn){
+  const d=parseInt(btn.dataset.d);
+  if(remSelectedDays.includes(d))remSelectedDays=remSelectedDays.filter(x=>x!==d);
+  else remSelectedDays.push(d);
+  btn.classList.toggle('sel',remSelectedDays.includes(d));
+}
+
+function toggleAllDays(btn){
+  if(remSelectedDays.length===7){remSelectedDays=[];document.querySelectorAll('.day-check[data-d]').forEach(b=>b.classList.remove('sel'))}
+  else{remSelectedDays=[0,1,2,3,4,5,6];document.querySelectorAll('.day-check[data-d]').forEach(b=>b.classList.add('sel'))}
+}
+
+function selectRemCat(cat,btn){
+  remSelectedCat=cat;
+  document.querySelectorAll('.cat-sel-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function selectSound(s,btn){
+  remSelectedSound=s;
+  document.querySelectorAll('.sound-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if(s!=='none')playBeep(s);
+}
+
+function saveReminder(){
+  const label=document.getElementById('rm-label').value.trim();
+  const time=document.getElementById('rm-time').value;
+  const icon=document.getElementById('rm-icon').value.trim()||'🔔';
+  const note=document.getElementById('rm-note').value.trim();
+  if(!label){showToast('⚠️ Enter a reminder label','rem');return}
+  if(!time){showToast('⚠️ Select a time','rem');return}
+  if(!remSelectedDays.length){showToast('⚠️ Select at least one day','rem');return}
+  const rems=getReminders();
+  if(remEditId){
+    const idx=rems.findIndex(r=>r.id===remEditId);
+    if(idx>-1){rems[idx]={...rems[idx],label,time,icon,note,days:[...remSelectedDays].sort(),category:remSelectedCat,sound:remSelectedSound}}
+  } else {
+    rems.push({id:'rem_'+Date.now(),label,time,icon,note,days:[...remSelectedDays].sort(),category:remSelectedCat,sound:remSelectedSound,enabled:true,createdAt:new Date().toISOString()});
+  }
+  saveReminders(rems);
+  renderRemindersTab();
+  closeRemModal();
+  showToast(remEditId?'✅ Reminder updated!':'🔔 Reminder added!','rem');
+}
+
+function deleteReminder(id){
+  const rems=getReminders().filter(r=>r.id!==id);
+  saveReminders(rems);renderRemindersTab();showToast('🗑️ Reminder deleted','rem');
+}
+
+function toggleReminderEnabled(id){
+  const rems=getReminders();
+  const r=rems.find(x=>x.id===id);if(r)r.enabled=!r.enabled;
+  saveReminders(rems);renderRemindersTab();
+  showToast(r?.enabled?'🔔 Reminder enabled':'🔕 Reminder disabled','rem');
+}
+
+/* ════════════════════════════════════════════
+   RENDER REMINDERS TAB
+════════════════════════════════════════════ */
+function renderRemindersTab(){
+  renderRemStats();
+  renderRemindersList();
+  renderAISuggestions();
+  updateReminderHeaderCount();
+  renderNotifBanner();
+}
+
+function renderNotifBanner(){
+  const banner=document.getElementById('notif-banner');
+  if(!('Notification' in window)){banner.style.display='none';return}
+  if(Notification.permission==='granted'){
+    banner.className='notif-banner granted';
+    banner.innerHTML='<span style="font-size:1.2rem">✅</span><div>Browser notifications are <strong>enabled</strong>. You\'ll get alerts when reminders fire.</div>';
+    banner.style.display='flex';
+    setTimeout(()=>banner.style.display='none',4000);
+  } else if(Notification.permission==='denied'){
+    banner.className='notif-banner denied';
+    banner.innerHTML='<span style="font-size:1.2rem">❌</span><div>Notifications are <strong>blocked</strong>. Allow notifications in your browser settings (🔒 icon in address bar).</div>';
+    banner.style.display='flex';
+  } else {
+    banner.className='notif-banner warn';
+    banner.innerHTML='<span style="font-size:1.2rem">🔔</span><div style="flex:1"><strong>Enable browser notifications</strong> to receive reminder alerts in the background.</div><button class="notif-banner-btn" onclick="requestNotifPermission()">Enable</button>';
+    banner.style.display='flex';
+  }
+}
+
+async function requestNotifPermission(){
+  const p=await Notification.requestPermission();
+  renderNotifBanner();
+  if(p==='granted')showToast('✅ Notifications enabled!','rem');
+  else showToast('⚠️ Notifications were blocked','rem');
+}
+
+function renderRemStats(){
+  const rems=getReminders();
+  const active=rems.filter(r=>r.enabled).length;
+  const todayRems=rems.filter(r=>r.enabled&&r.days.includes(new Date().getDay())).length;
+  const upcoming=getUpcomingReminders(60).length;
+  document.getElementById('rem-stats').innerHTML=`
+    <div class="rem-stat-pill" style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25)"><div class="rsp-val" style="color:var(--rem)">🔔 ${rems.length}</div><div class="rsp-lbl">Total</div></div>
+    <div class="rem-stat-pill" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25)"><div class="rsp-val" style="color:var(--success)">✅ ${active}</div><div class="rsp-lbl">Enabled</div></div>
+    <div class="rem-stat-pill" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25)"><div class="rsp-val" style="color:var(--accent2)">📅 ${todayRems}</div><div class="rsp-lbl">Today</div></div>
+    <div class="rem-stat-pill" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25)"><div class="rsp-val" style="color:var(--accent)">⏰ ${upcoming}</div><div class="rsp-lbl">Next Hour</div></div>
+  `;
+}
+
+function renderRemindersList(){
+  const rems=getReminders();
+  const cont=document.getElementById('reminders-list');
+  const filtered=activeFilter==='all'?rems:rems.filter(r=>r.category===activeFilter);
+
+  if(filtered.length===0){
+    cont.innerHTML=`<div class="empty-state"><div class="es-icon">🔔</div><p>${rems.length===0?'No reminders yet. Click "+ Add Reminder" to create your first one!':'No reminders in this category.'}</p></div>`;
+    return;
+  }
+
+  // Sort by time
+  const sorted=[...filtered].sort((a,b)=>a.time.localeCompare(b.time));
+  const now=new Date();
+  const nowMin=now.getHours()*60+now.getMinutes();
+  const todayDay=now.getDay();
+
+  cont.innerHTML=sorted.map(r=>{
+    const[h,m]=r.time.split(':').map(Number);
+    const remMin=h*60+m;
+    const isToday=r.days.includes(todayDay);
+    const isPast=isToday&&remMin<nowMin;
+    const isUpcoming=isToday&&!isPast&&remMin<=nowMin+60;
+    const dotClass=!r.enabled?'past':isUpcoming?'active':isPast?'past':'upcoming';
+    const catColor=CAT_COLORS[r.category]||'var(--rem)';
+    const daysStr=r.days.length===7?'Every day':r.days.map(d=>DAY_NAMES[d]).join(', ');
+    const timeDisplay=formatTime12(r.time);
+    const nextText=!r.enabled?'Disabled':isToday&&!isPast?`Today at ${timeDisplay}`:getNextOccurrence(r);
+
+    return`<div class="rem-card cat-${r.category}${r.enabled?'':' disabled'}" id="remcard-${r.id}">
+      <div class="rem-dot ${dotClass}"></div>
+      <div class="rem-info">
+        <div class="rem-header">
+          <span style="font-size:1.3rem">${r.icon}</span>
+          <span class="rem-label">${r.label}</span>
+          <span class="rem-cat-tag" style="background:${catColor}22;color:${catColor};border:1px solid ${catColor}44">${CAT_LABELS[r.category]||r.category}</span>
+        </div>
+        <div class="rem-time-row">
+          <span class="rem-time-badge">${timeDisplay}</span>
+          <span class="rem-repeat">${daysStr}</span>
+          ${r.sound&&r.sound!=='none'?`<span style="font-size:0.7rem;color:var(--muted)">🔔 ${r.sound}</span>`:'<span style="font-size:0.7rem;color:var(--muted)">🔇 silent</span>'}
+        </div>
+        <div class="rem-next">${r.note?`📝 ${r.note} · `:''}<span style="color:${isUpcoming?'var(--rem)':'var(--muted)'}">${nextText}</span></div>
+      </div>
+      <div class="rem-actions">
+        <button class="rem-toggle ${r.enabled?'on':'off'}" onclick="toggleReminderEnabled('${r.id}')"></button>
+        <button class="btn btn-edit-soft" onclick="openRemModalEdit('${r.id}')">✏️</button>
+        <button class="btn btn-danger-soft" onclick="deleteReminder('${r.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterReminders(cat,btn){
+  activeFilter=cat;
+  document.querySelectorAll('.cat-chip').forEach(b=>b.classList.toggle('active',b===btn));
+  renderRemindersList();
+}
+
+function formatTime12(time24){
+  const[h,m]=time24.split(':').map(Number);
+  const ampm=h>=12?'PM':'AM';
+  const h12=h%12||12;
+  return`${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function getNextOccurrence(r){
+  const now=new Date();
+  const todayDay=now.getDay();
+  const nowMin=now.getHours()*60+now.getMinutes();
+  const[h,m]=r.time.split(':').map(Number);
+  const remMin=h*60+m;
+  for(let i=0;i<=7;i++){
+    const checkDay=(todayDay+i)%7;
+    if(r.days.includes(checkDay)){
+      if(i===0&&remMin>nowMin)return`Today at ${formatTime12(r.time)}`;
+      if(i===1)return`Tomorrow at ${formatTime12(r.time)}`;
+      return`${DAY_NAMES[checkDay]} at ${formatTime12(r.time)}`;
+    }
+  }
+  return'Not scheduled';
+}
+
+function renderAISuggestions(){
+  const last3=storage.getLast3();
+  const sugs=generateSuggestions(last3);
+  const cont=document.getElementById('ai-suggestions-container');
+  if(!sugs.length){cont.innerHTML=`<div class="empty-state" style="padding:2rem"><div class="es-icon" style="font-size:1.8rem">📭</div><p>Log 2+ days of habits to get AI-suggested reminders.</p></div>`;return}
+  cont.innerHTML=sugs.map(s=>`
+    <div class="suggestion ${s.type}">
+      <span class="sug-icon">${s.icon}</span>
+      <div>
+        <div class="sug-title">${s.title}</div>
+        <div class="sug-body">${s.msg}</div>
+        <div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+          <span class="sug-tomorrow">📌 ${s.tomorrow}</span>
+          <button class="sug-add-rem" onclick="openRemModal('${s.title}: ${s.tomorrow}')">＋ Add as Reminder</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════════
+   REMINDER CHECKER (runs every 30 seconds)
+════════════════════════════════════════════ */
+function startReminderChecker(){
+  if(remCheckInterval)clearInterval(remCheckInterval);
+  checkReminders(); // immediate
+  remCheckInterval=setInterval(checkReminders,30000);
+}
+
+function checkReminders(){
+  const rems=getReminders();
+  const now=new Date();
+  const nowH=now.getHours();
+  const nowM=now.getMinutes();
+  const todayDay=now.getDay();
+  const todayKey=now.toISOString().split('T')[0];
+
+  rems.forEach(r=>{
+    if(!r.enabled)return;
+    if(!r.days.includes(todayDay))return;
+    const[h,m]=r.time.split(':').map(Number);
+    if(h===nowH&&Math.abs(m-nowM)<=1){
+      const fireKey=`fired_${r.id}_${todayKey}_${h}:${m}`;
+      if(!sessionStorage.getItem(fireKey)){
+        sessionStorage.setItem(fireKey,'1');
+        fireReminder(r);
+      }
+    }
+  });
+}
+
+function fireReminder(r){
+  // Flash the reminder card
+  const card=document.getElementById(`remcard-${r.id}`);
+  if(card)card.classList.add('firing');
+  setTimeout(()=>card?.classList.remove('firing'),1200);
+
+  // Show popup
+  currentPopupRemId=r.id;
+  document.getElementById('popup-icon').textContent=r.icon;
+  document.getElementById('popup-title').textContent=r.label;
+  document.getElementById('popup-body').textContent=`⏰ ${formatTime12(r.time)}${r.note?' — '+r.note:''}`;
+  const popup=document.getElementById('rem-popup');
+  popup.classList.add('show');
+  setTimeout(()=>popup.classList.remove('show'),12000);
+
+  // Play sound
+  playBeep(r.sound||'bell');
+
+  // Browser notification
+  if(Notification.permission==='granted'){
+    new Notification(`🔔 ${r.label}`,{body:`Time: ${formatTime12(r.time)}${r.note?' — '+r.note:''}`,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>'});
+  }
+
+  showToast(`🔔 Reminder: ${r.label}`,'rem');
+  // Update badge
+  updateReminderHeaderCount();
+}
+
+function dismissReminder(){
+  document.getElementById('rem-popup').classList.remove('show');
+  currentPopupRemId=null;
+}
+
+function snoozeReminder(){
+  if(!currentPopupRemId)return;
+  const rems=getReminders();
+  const r=rems.find(x=>x.id===currentPopupRemId);
+  if(r){
+    showToast(`⏰ Snoozed "${r.label}" for 5 minutes`,'rem');
+    setTimeout(()=>fireReminder(r),5*60*1000);
+  }
+  dismissReminder();
+}
+
+/* ════════════════════════════════════════════
+   SOUND PLAYER (Web Audio API)
+════════════════════════════════════════════ */
+function playBeep(type='bell'){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    if(type==='bell'){osc.type='sine';osc.frequency.setValueAtTime(880,ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(440,ctx.currentTime+0.4);gain.gain.setValueAtTime(0.4,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.6);osc.start();osc.stop(ctx.currentTime+0.6)}
+    else if(type==='chime'){osc.type='triangle';osc.frequency.setValueAtTime(1047,ctx.currentTime);gain.gain.setValueAtTime(0.3,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.8);osc.start();osc.stop(ctx.currentTime+0.8)}
+    else if(type==='ding'){osc.type='sine';osc.frequency.setValueAtTime(1320,ctx.currentTime);gain.gain.setValueAtTime(0.5,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);osc.start();osc.stop(ctx.currentTime+0.3)}
+  }catch(e){}
+}
+
+/* ════════════════════════════════════════════
+   LIMIT & SCORE
+════════════════════════════════════════════ */
+function checkLimit(task,value){
+  if(value===''||value===null||value===undefined)return null;
+  const v=parseFloat(value);if(isNaN(v))return null;
+  if(v>task.limit)return{type:'over',msg:`⚠️ Limit exceeded! Max is ${task.limit} ${task.unit}.`};
+  if(task.lowWarn&&v<task.limit)return{type:'under',msg:`💡 Below recommended (${task.limit} ${task.unit}).`};
+  return{type:'ok',msg:`✅ Within range!`};
+}
+
+function calcScore(taskValues){
+  let score=0,total=0;
+  taskValues.forEach(tv=>{
+    const def=TASKS.find(t=>t.id===tv.id);if(!def)return;
+    const v=parseFloat(tv.value);if(isNaN(v)||tv.value===''||tv.value===null||tv.value===undefined)return;
+    total+=100;score+=def.lowWarn?Math.min(100,(v/def.limit)*100):v<=def.limit?100:Math.max(0,100-((v-def.limit)/def.limit)*100);
+  });
+  return total===0?0:Math.round((score/total)*100);
+}
+
+/* ════════════════════════════════════════════
+   AI SUGGESTIONS
+════════════════════════════════════════════ */
+function generateSuggestions(last3){
+  if(!last3||last3.length<2)return[];
+  const sugs=[];
+  TASKS.forEach(task=>{
+    const vals=last3.map(d=>d.tasks?.find(t=>t.id===task.id)?.value).filter(v=>v!==undefined&&v!==''&&v!==null).map(Number).filter(v=>!isNaN(v));
+    if(vals.length<2)return;
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length,n=vals.length;
+    if(!task.lowWarn&&avg>task.limit)sugs.push({type:'warning',icon:task.icon,title:`Reduce ${task.name}`,msg:`Avg ${task.name.toLowerCase()} is ${avg.toFixed(1)} ${task.unit} over ${n} days (limit: ${task.limit}).`,tomorrow:`Reduce to ${task.limit} ${task.unit}`});
+    if(task.lowWarn&&avg<task.limit)sugs.push({type:'warning',icon:task.icon,title:`Increase ${task.name}`,msg:`Avg is only ${avg.toFixed(1)} ${task.unit}. Aim for ${task.limit}.`,tomorrow:`Target ${task.limit} ${task.unit}`});
+    if(task.lowWarn&&vals.every(v=>v>=task.limit))sugs.push({type:'success',icon:task.icon,title:`Great ${task.name} Habit!`,msg:`Consistently hitting your ${task.name.toLowerCase()} goal for ${n} days!`,tomorrow:`Maintain ${task.limit}+ ${task.unit}`});
+  });
+  return sugs;
+}
+
+/* ════════════════════════════════════════════
+   TASK CARDS
+════════════════════════════════════════════ */
+function renderTaskCards(){
+  const grid=document.getElementById('tasks-grid');
+  const dayData=storage.getDay(TODAY);
+  const savedMap={};(dayData?.tasks||[]).forEach(t=>{savedMap[t.id]=t.value});
+  grid.innerHTML='';
+  TASKS.forEach(task=>{
+    const val=savedMap[task.id]!==undefined?savedMap[task.id]:'';
+    const card=document.createElement('div');
+    card.className='task-card';card.id=`card-${task.id}`;
+    const micBtn=voiceSupported?`<button class="mic-btn-inline" id="mic-${task.id}" onclick="startCardMic('${task.id}')" title="Voice input">🎤</button>`:'';
+    card.innerHTML=`
+      <div class="task-head">
+        <div class="task-meta"><span class="task-icon">${task.icon}</span><div><div class="task-name">${task.name}</div><div class="task-limit">Limit: ${task.limit} ${task.unit}</div></div></div>
+        <span class="badge badge-${task.isDefault?task.priority:'custom'}">${task.isDefault?task.priority:'custom'}</span>
+      </div>
+      <div class="task-input-row">
+        <input class="task-input" type="number" min="0" step="0.5" placeholder="Enter ${task.unit}…" value="${val}" oninput="onTaskInput('${task.id}',this.value)" id="inp-${task.id}"/>
+        <span class="task-unit">${task.unit}</span>${micBtn}
+      </div>
+      <div class="task-status" id="status-${task.id}"></div>
+      ${!task.isDefault?`<button class="task-del btn" onclick="deleteTask('${task.id}')">✕ Remove</button>`:''}
+    `;
+    grid.appendChild(card);
+    if(val!=='')updateStatus(task.id,val);
+  });
+  updateLiveScore();
+}
+
+function onTaskInput(id,value){updateStatus(id,value);updateLiveScore()}
+function updateStatus(id,value){
+  const task=TASKS.find(t=>t.id===id);if(!task)return;
+  const st=checkLimit(task,value);
+  const el=document.getElementById(`status-${id}`);
+  const card=document.getElementById(`card-${id}`);if(!el)return;
+  card.classList.remove('status-over','status-under','status-ok');
+  el.classList.remove('show','over','under','ok');
+  if(st){el.textContent=st.msg;el.classList.add('show',st.type);if(st.type!=='ok')card.classList.add(`status-${st.type}`);else card.classList.add('status-ok')}
+}
+function updateLiveScore(){
+  const vals=TASKS.map(t=>({id:t.id,value:document.getElementById(`inp-${t.id}`)?.value||''}));
+  const sc=calcScore(vals);
+  document.getElementById('live-score').textContent=sc+'%';
+  document.getElementById('h-score').textContent=sc;
+}
+function saveToday(){
+  const tasks=TASKS.map(t=>({id:t.id,name:t.name,icon:t.icon,unit:t.unit,limit:t.limit,value:document.getElementById(`inp-${t.id}`)?.value!==''?parseFloat(document.getElementById(`inp-${t.id}`)?.value||''):null})).filter(t=>t.value!==null&&!isNaN(t.value));
+  storage.saveDay(TODAY,tasks);
+  refreshHeader();
+  showToast('💾 Saved locally!');
+  // Also auto-save to backend if connected
+  if(AUTH_TOKEN){
+    window.saveToBackend().then(()=>{}).catch(()=>{});
+  }
+}
+function resetToday(){TASKS.forEach(t=>{const i=document.getElementById(`inp-${t.id}`);if(i)i.value='';updateStatus(t.id,'')});updateLiveScore();showToast('↺ Reset complete')}
+function deleteTask(id){TASKS=TASKS.filter(t=>t.id!==id);saveTasks(TASKS);renderTaskCards();showToast('🗑️ Task removed')}
+function refreshHeader(){
+  document.getElementById('h-streak').textContent=storage.getStreak();
+  const td=storage.getDay(TODAY);
+  document.getElementById('h-score').textContent=calcScore((td?.tasks||[]).map(t=>({id:t.id,value:t.value})));
+  updateReminderHeaderCount();
+}
+
+/* ════════════════════════════════════════════
+   VOICE SYSTEM
+════════════════════════════════════════════ */
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+const voiceSupported=!!SpeechRecognition;
+/* ════════════════════════════════════════════
+   NLP ENGINE — Smart Voice Understanding
+   WordNet synonyms, number words, intent detection
+════════════════════════════════════════════ */
+
+// ── WordNet-style synonym dictionary ──
+const NLP_WORDNET = {
+  water: ['water','waters','drank','drink','drinking','drunk','drinks','glass','glasses','cup','cups','bottle','bottles','hydrate','hydration','hydrated','h2o','fluid','fluids','sip','sips','sipped','gulp','thirsty','beverage','beverages','litre','liter','ml','had water','water intake'],
+  sleep: ['sleep','slept','sleeping','sleepy','slumber','nap','napped','napping','rest','rested','resting','bed','bedtime','asleep','dozed','doze','night','woke','woken','wakeup','wake up','fell asleep','went to bed','hit the bed','crashed','snooze','snoozed','tired','shut eye','sleep hours','rested for','hours sleep'],
+  mobile: ['mobile','phone','smartphone','screen','screentime','screen time','device','iphone','android','app','apps','scroll','scrolling','browsing','internet','social media','instagram','youtube','tiktok','whatsapp','snapchat','netflix','used phone','on phone','phone usage','phone time','screen usage','digital'],
+  homework: ['homework','study','studied','studying','studies','work','worked','working','assignment','assignments','project','projects','exam','revision','revise','read','reading','textbook','class','school','college','learn','learning','learned','academic','subject','math','science','writing','essay','notes','coding','code','study session','hours studied','did homework'],
+  eat: ['eat','ate','eating','eaten','meal','meals','food','foods','lunch','dinner','breakfast','brunch','snack','snacks','snacked','fed','dish','dishes','plate','bite','bites','cook','cooked','cooking','had food','had meal','consumed','nutrition','calorie','calories','diet','times ate'],
+  play: ['play','played','playing','exercise','exercised','exercising','workout','worked out','sport','sports','game','games','gaming','run','ran','running','jog','jogged','walk','walked','walking','gym','fitness','yoga','swim','swam','swimming','cycle','cycling','biked','football','cricket','badminton','tennis','basketball','outdoor','activity','recreation','physical activity']
+};
+
+// ── Number word to digit mapping ──
+const NLP_NUMBER_WORDS = {
+  'zero':0,'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,
+  'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12,'thirteen':13,
+  'fourteen':14,'fifteen':15,'sixteen':16,'seventeen':17,'eighteen':18,
+  'nineteen':19,'twenty':20,'half':0.5,'a half':0.5,'one and a half':1.5,
+  'two and a half':2.5,'three and a half':3.5,'four and a half':4.5,
+  'five and a half':5.5,'quarter':0.25,'a few':3,'few':3,'couple':2,
+  'a couple':2,'several':4,'some':3,'lots':8,'a lot':8,'many':6
+};
+
+// ── Context phrases that imply values without numbers ──
+const NLP_CONTEXT_CLUES = {
+  water:    {'well hydrated':8,'very hydrated':8,'not enough water':3,'forgot to drink':2,'drank a lot':8,'barely drank':2,'no water':0},
+  sleep:    {'slept well':8,'good sleep':8,'great sleep':8,'bad sleep':5,'poor sleep':5,'barely slept':4,'all nighter':0,'all night':0,"couldn't sleep":3,'could not sleep':3,'early to bed':9,'full night':8,'woke up refreshed':8,'woke up tired':5,'slept in':9},
+  mobile:   {'too much phone':5,'on phone all day':6,'no phone':0,'digital detox':0,'barely used phone':1,'phone free':0},
+  homework: {'finished all homework':3,'did not study':0,"didn't study":0,'studied all day':6,'quick study':1,'long study session':4,'skipped homework':0},
+  eat:      {'three meals':3,'skipped breakfast':2,'skipped lunch':2,'skipped dinner':2,'ate everything':3,'did not eat':0,"didn't eat":0,'fasted':0},
+  play:     {'no exercise':0,'did not exercise':0,"didn't exercise":0,'worked out hard':2,'quick workout':0.5,'long workout':2,'active day':2}
+};
+
+function nlpExtractNumber(text) {
+  const digitMatch = text.match(/\b(\d+(?:\.\d+)?)\b/);
+  if (digitMatch) return parseFloat(digitMatch[1]);
+  const sorted = Object.keys(NLP_NUMBER_WORDS).sort((a,b)=>b.length-a.length);
+  for (const w of sorted) { if (text.includes(w)) return NLP_NUMBER_WORDS[w]; }
+  return null;
+}
+
+function nlpDetectTask(text) {
+  const lower = text.toLowerCase();
+  let bestMatch = null, bestScore = 0;
+  for (const [taskId, synonyms] of Object.entries(NLP_WORDNET)) {
+    const taskExists = TASKS.find(t => t.id === taskId);
+    if (!taskExists) continue;
+    const longestFirst = [...synonyms].sort((a,b)=>b.length-a.length);
+    for (const syn of longestFirst) {
+      if (lower.includes(syn)) {
+        const score = syn.split(' ').length * 2;
+        if (score > bestScore) { bestScore = score; bestMatch = taskId; }
+        break;
+      }
+    }
+  }
+  // Also check custom tasks
+  TASKS.filter(t=>!t.isDefault).forEach(t=>{
+    const words = t.name.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+    const matched = words.filter(w=>lower.includes(w));
+    if (matched.length*2 > bestScore) { bestScore = matched.length*2; bestMatch = t.id; }
+  });
+  return bestMatch;
+}
+
+function nlpCheckContext(text, taskId) {
+  const lower = text.toLowerCase();
+  const clues = NLP_CONTEXT_CLUES[taskId];
+  if (!clues) return null;
+  const longestFirst = Object.keys(clues).sort((a,b)=>b.length-a.length);
+  for (const phrase of longestFirst) { if (lower.includes(phrase)) return clues[phrase]; }
+  return null;
+}
+
+function nlpNormalizeNumbers(text) {
+  let t = text.toLowerCase();
+  t = t.replace(/(\d+)\s+and\s+a\s+half/g, (_,n)=>(parseFloat(n)+0.5).toString());
+  const sorted = Object.keys(NLP_NUMBER_WORDS).sort((a,b)=>b.length-a.length);
+  for (const w of sorted) {
+    if (new RegExp('\\b'+w+'\\b','i').test(t)) {
+      t = t.replace(new RegExp('\\b'+w+'\\b','gi'), NLP_NUMBER_WORDS[w].toString());
+      break;
+    }
+  }
+  return t;
+}
+
+function parseVoiceInput(transcript) {
+  const results = {};
+  const normalized = nlpNormalizeNumbers(transcript);
+  // Split on conjunctions to handle multiple habits in one sentence
+  const sentences = normalized.toLowerCase()
+    .replace(/[,;]/g,' and ')
+    .split(/\b(and|also|plus|then|,)\b/)
+    .map(s=>s.trim())
+    .filter(s=>s.length>2 && !['and','also','plus','then',','].includes(s));
+
+  for (const sentence of sentences) {
+    const taskId = nlpDetectTask(sentence);
+    if (!taskId || results[taskId] != null) continue;
+    // 1. Context clue without number
+    const ctxVal = nlpCheckContext(sentence, taskId);
+    if (ctxVal != null && !sentence.match(/\d/)) { results[taskId]=ctxVal; continue; }
+    // 2. Extract number
+    const num = nlpExtractNumber(sentence);
+    if (num != null) { results[taskId]=num; continue; }
+    // 3. Context clue fallback
+    if (ctxVal != null) { results[taskId]=ctxVal; }
+  }
+
+  // Full transcript fallback scan
+  if (Object.keys(results).length === 0) {
+    const normFull = nlpNormalizeNumbers(transcript.toLowerCase());
+    for (const [taskId, synonyms] of Object.entries(NLP_WORDNET)) {
+      if (results[taskId] != null || !TASKS.find(t=>t.id===taskId)) continue;
+      for (const syn of [...synonyms].sort((a,b)=>b.length-a.length)) {
+        if (!normFull.includes(syn)) continue;
+        const idx = normFull.indexOf(syn);
+        const surrounding = normFull.slice(Math.max(0,idx-30), idx+syn.length+30);
+        const num = nlpExtractNumber(surrounding);
+        if (num!=null){results[taskId]=num;break;}
+        const ctxVal = nlpCheckContext(normFull, taskId);
+        if (ctxVal!=null){results[taskId]=ctxVal;break;}
+      }
+    }
+  }
+  return results;
+}
+
+function parseForTask(transcript) {
+  const normalized = nlpNormalizeNumbers(transcript.toLowerCase());
+  const num = nlpExtractNumber(normalized);
+  if (num != null) return num;
+  if (currentVoiceTaskId) {
+    const ctxVal = nlpCheckContext(normalized, currentVoiceTaskId);
+    if (ctxVal != null) return ctxVal;
+  }
+  return null;
+}
+
+function buildCustomAliases(){return {}}
+
+
+function initRecognition(onResult,onEnd,onError){
+  if(!voiceSupported)return null;
+  const r=new SpeechRecognition();r.continuous=true;r.interimResults=true;r.lang='en-US';r.maxAlternatives=1;
+  r.onresult=(e)=>{let interim='',final='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)final+=t+' ';else interim+=t}onResult(final,interim)};
+  r.onend=onEnd;r.onerror=(e)=>onError(e.error);return r;
+}
+
+function toggleVoiceHUD(){const h=document.getElementById('voice-hud');h.classList.contains('open')?closeVoiceHUD():openVoiceHUD()}
+function openVoiceHUD(){
+  if(!voiceSupported){showToast('⚠️ Voice not supported. Use Chrome/Edge.');return}
+  document.getElementById('voice-hud').classList.add('open');document.getElementById('fab-label').classList.add('show');resetHUD();
+}
+function closeVoiceHUD(){if(isRecording)stopRecording();document.getElementById('voice-hud').classList.remove('open');document.getElementById('fab-label').classList.remove('show');currentVoiceTaskId=null}
+function resetHUD(){finalTranscript='';parsedVoiceData={};document.getElementById('hud-transcript').innerHTML='<span style="color:var(--muted);font-size:0.85rem">Press "Start Listening" and speak…</span>';document.getElementById('hud-status').textContent='';document.getElementById('hud-status').className='hud-status';document.getElementById('hud-parsed').innerHTML='';document.getElementById('btn-apply').disabled=true;document.getElementById('waveform').className='waveform idle'}
+function setHUDStatus(msg,type=''){const el=document.getElementById('hud-status');el.textContent=msg;el.className='hud-status '+type}
+
+function startRecording(){
+  if(!voiceSupported||isRecording)return;
+  finalTranscript='';parsedVoiceData={};document.getElementById('hud-parsed').innerHTML='';document.getElementById('btn-apply').disabled=true;
+  recognition=initRecognition(
+    (final,interim)=>{
+      if(final){
+        finalTranscript+=final;
+        if(currentVoiceTaskId){
+          const val=parseForTask(finalTranscript);
+          if(val!==null){const inp=document.getElementById(`inp-${currentVoiceTaskId}`);if(inp){inp.value=val;onTaskInput(currentVoiceTaskId,val)}addVoiceLog(`"${finalTranscript.trim()}" → ${TASKS.find(t=>t.id===currentVoiceTaskId)?.name}: ${val}`);stopRecording();setHUDStatus(`✅ Set ${TASKS.find(t=>t.id===currentVoiceTaskId)?.name} to ${val}`,'success');showToast(`🎤 ${TASKS.find(t=>t.id===currentVoiceTaskId)?.name}: ${val}`,true);return}
+        }
+        const parsed=parseVoiceInput(finalTranscript);if(Object.keys(parsed).length>0){Object.assign(parsedVoiceData,parsed);renderParsedChips();document.getElementById('btn-apply').disabled=false}
+      }
+      const d=(finalTranscript+'<span class="hud-interim">'+interim+'</span>').trim()||'<span style="color:var(--muted);font-size:0.85rem">Listening…</span>';
+      document.getElementById('hud-transcript').innerHTML=d;if(finalTranscript||interim)document.getElementById('hud-transcript').classList.add('has-text');
+    },
+    ()=>{if(isRecording){try{recognition.start()}catch(e){}}else{setWaveformState(false);showStopHide();if(!finalTranscript)setHUDStatus('No speech detected.','error');else if(!Object.keys(parsedVoiceData).length)setHUDStatus('Heard you! Try: "drank 6 glasses" or "slept 8 hours"','processing')}},
+    (err)=>{if(err==='not-allowed'){setHUDStatus('❌ Mic denied. Allow mic in browser.','error');showToast('🎤 Mic permission denied.')}else if(err!=='aborted'){setHUDStatus(`Error: ${err}`,'error')}isRecording=false;setWaveformState(false);showStopHide()}
+  );
+  try{recognition.start();isRecording=true;setWaveformState(true);setHUDStatus(currentVoiceTaskId?`Listening for ${TASKS.find(t=>t.id===currentVoiceTaskId)?.name}…`:'Listening… say your habits!','listening');document.getElementById('btn-start').style.display='none';document.getElementById('btn-stop').style.display='';document.getElementById('voice-fab').classList.add('recording');document.getElementById('voice-main-btn').classList.add('recording');document.getElementById('voice-main-icon').textContent='⏹';document.getElementById('voice-main-label').textContent='Stop'}
+  catch(e){setHUDStatus('Could not start mic. '+e.message,'error')}
+}
+
+function showStopHide(){document.getElementById('btn-start').style.display='';document.getElementById('btn-stop').style.display='none';document.getElementById('voice-fab').classList.remove('recording');document.getElementById('voice-main-btn').classList.remove('recording');document.getElementById('voice-main-icon').textContent='🎤';document.getElementById('voice-main-label').textContent='Voice Input';document.querySelectorAll('.mic-btn-inline').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('listening'))}
+
+function stopRecording(){isRecording=false;if(recognition){try{recognition.stop()}catch(e){}}setWaveformState(false);showStopHide();currentVoiceTaskId=null}
+function setWaveformState(a){document.getElementById('waveform').className='waveform '+(a?'active':'idle')}
+function renderParsedChips(){document.getElementById('hud-parsed').innerHTML=Object.entries(parsedVoiceData).map(([id,val])=>{const t=TASKS.find(x=>x.id===id);return t?`<div class="parsed-chip"><span>${t.icon}</span>${t.name}: <strong>${val} ${t.unit}</strong></div>`:''}).join('')}
+function applyVoiceData(){
+  if(!Object.keys(parsedVoiceData).length)return;
+  let applied=0;
+  Object.entries(parsedVoiceData).forEach(([id,val])=>{const inp=document.getElementById(`inp-${id}`);if(inp){inp.value=val;onTaskInput(id,val);applied++;inp.style.borderColor='var(--mic)';setTimeout(()=>inp.style.borderColor='',1200)}});
+  const summary=Object.entries(parsedVoiceData).map(([id,v])=>{const t=TASKS.find(x=>x.id===id);return`${t?.icon||''} ${t?.name||id}: ${v}`}).join(' · ');
+  addVoiceLog(`"${finalTranscript.trim()}" → ${summary}`);
+  setHUDStatus(`✅ Applied ${applied} value${applied>1?'s':''}!`,'success');
+  showToast(`🎤 Applied: ${summary}`,true);
+  parsedVoiceData={};finalTranscript='';
+  document.getElementById('btn-apply').disabled=true;
+  document.getElementById('hud-transcript').innerHTML='<span style="color:var(--muted);font-size:0.85rem">Speak again or close…</span>';
+  document.getElementById('hud-parsed').innerHTML='';
+}
+
+function startCardMic(taskId){
+  if(!voiceSupported){showToast('⚠️ Voice not supported. Use Chrome/Edge.');return}
+  if(isRecording){stopRecording();return}
+  currentVoiceTaskId=taskId;
+  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('listening'));
+  document.getElementById(`card-${taskId}`)?.classList.add('listening');
+  document.querySelectorAll('.mic-btn-inline').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`mic-${taskId}`)?.classList.add('active');
+  openVoiceHUD();
+  const task=TASKS.find(t=>t.id===taskId);
+  setHUDStatus(`Say the value for "${task?.name}"…`,'listening');
+  document.getElementById('hud-transcript').innerHTML=`<span style="color:var(--muted)">Listening for ${task?.icon} ${task?.name}…</span>`;
+  setTimeout(startRecording,100);
+}
+
+function addVoiceLog(text){const now=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});voiceLog.unshift({text,time:now});if(voiceLog.length>10)voiceLog.pop();renderVoiceLog()}
+function renderVoiceLog(){const section=document.getElementById('voice-log-section');const log=document.getElementById('voice-log');if(!voiceLog.length){section.style.display='none';return}section.style.display='block';log.innerHTML=voiceLog.map(item=>`<div class="voice-log-item"><span class="vlog-icon">🎤</span><span class="vlog-text">${item.text}</span><span class="vlog-time">${item.time}</span></div>`).join('')}
+
+/* ════════════════════════════════════════════
+   ADD TASK MODAL
+════════════════════════════════════════════ */
+function buildEmojiGrid(){document.getElementById('emoji-grid').innerHTML=EMOJI_LIST.map(e=>`<button class="emoji-btn${e===selectedEmoji?' sel':''}" onclick="selectEmoji('${e}')">${e}</button>`).join('')}
+function openModal(){document.getElementById('modal-overlay').classList.add('open');['f-name','f-limit','f-unit','f-icon'].forEach(id=>document.getElementById(id).value='');selectedEmoji='⭐';modalPriority='high';modalLowWarn=true;document.querySelectorAll('.priority-btn').forEach(b=>b.classList.toggle('sel',b.dataset.p==='high'));document.getElementById('lowwarn-toggle').classList.add('on');updateLowWarnLabel();buildEmojiGrid();setTimeout(()=>document.getElementById('f-name').focus(),100)}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open')}
+function closeModalOutside(e){if(e.target===document.getElementById('modal-overlay'))closeModal()}
+function selectEmoji(e){selectedEmoji=e;document.querySelectorAll('.emoji-btn').forEach(b=>b.classList.toggle('sel',b.textContent.trim()===e));document.getElementById('f-icon').value=''}
+function selectPriority(p){modalPriority=p;document.querySelectorAll('.priority-btn').forEach(b=>b.classList.toggle('sel',b.dataset.p===p))}
+function toggleLowWarn(){modalLowWarn=!modalLowWarn;document.getElementById('lowwarn-toggle').classList.toggle('on',modalLowWarn);updateLowWarnLabel()}
+function updateLowWarnLabel(){document.getElementById('lowwarn-label').textContent=modalLowWarn?'Warn if below limit':'Warn if above limit';document.getElementById('lowwarn-hint').textContent=modalLowWarn?'Good for: water, sleep, homework':'Good for: mobile, screen time'}
+function addCustomTask(){
+  const name=document.getElementById('f-name').value.trim();const limitVal=document.getElementById('f-limit').value;const unit=document.getElementById('f-unit').value.trim();const icon=document.getElementById('f-icon').value.trim()||selectedEmoji;
+  if(!name){showToast('⚠️ Enter a task name');return}if(!limitVal||isNaN(parseFloat(limitVal))){showToast('⚠️ Enter a valid limit');return}if(!unit){showToast('⚠️ Enter a unit');return}
+  const task={id:'custom_'+Date.now(),name,icon,unit,limit:parseFloat(limitVal),lowWarn:modalLowWarn,priority:modalPriority,isDefault:false};
+  TASKS.push(task);saveTasks(TASKS);renderTaskCards();closeModal();showToast(`✅ "${name}" added!`);
+}
+
+/* ════════════════════════════════════════════
+   WEEKLY REPORT
+════════════════════════════════════════════ */
+let reportLoading = false;
+function renderReport(){
+  if(reportLoading) return;
+  reportLoading = true;
+  updateWeekLabel();
+
+  const cont = document.getElementById('report-container');
+  Object.keys(charts).forEach(k=>{ try{charts[k].destroy()}catch(e){} });
+  charts = {};
+
+  // Get dates for selected week
+  const weekDates = getWeekDates(currentWeekOffset);
+
+  // Get local data for this week
+  const allLocal = storage.getAll();
+  const local7 = weekDates.map(d=>allLocal[d]).filter(Boolean);
+
+  if(local7.length > 0){
+    _drawReport(local7, cont, '💾 local storage');
+  } else {
+    cont.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div><p>Loading week data...</p></div>`;
+  }
+
+  // Refresh from backend silently
+  if(AUTH_TOKEN){
+    _loadWeekFromBackend(weekDates).then(backendData=>{
+      if(backendData && backendData.length > 0){
+        Object.keys(charts).forEach(k=>{ try{charts[k].destroy()}catch(e){} });
+        charts = {};
+        _drawReport(backendData, cont, '🗄️ database');
+      }
+      reportLoading = false;
+    }).catch(()=>{ reportLoading = false; });
+  } else {
+    reportLoading = false;
+  }
+}
+
+async function _loadReportFromBackend(){
+  try{
+    if(!BACKEND_TASKS.length) await loadBackendTasks();
+    const dates = [];
+    for(let i=6;i>=0;i--){
+      const d=new Date(); d.setDate(d.getDate()-i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+    const results = await Promise.all(dates.map(async date=>{
+      try{
+        const data = await apiCall(`/habits/logs/${date}`);
+        if(data.logs && data.logs.length > 0){
+          const tasks = data.logs.map(log=>{
+            const bt = BACKEND_TASKS.find(t=>t.id===log.task_id);
+            const ft = bt ? TASKS.find(t=>t.name.toLowerCase()===bt.name.toLowerCase()) : null;
+            return ft ? {id:ft.id, value:log.value} : null;
+          }).filter(Boolean);
+          if(tasks.length){ storage.saveDay(date, tasks); return {date, tasks}; }
+        }
+        return null;
+      }catch(e){ return null; }
+    }));
+    return results.filter(Boolean);
+  }catch(e){ return null; }
+}
+
+function _drawReport(last7, cont, source){
+  const labels = last7.map(d=>new Date(d.date).toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}));
+  const getVals = (id)=>last7.map(d=>{ const t=d.tasks?.find(t=>t.id===id); return t?parseFloat(t.value)||null:null; });
+  const avgScore = Math.round(last7.map(d=>calcScore((d.tasks||[]).map(t=>({id:t.id,value:t.value})))).reduce((a,b)=>a+b,0)/last7.length);
+  const completionPct = last7.map(d=>{const f=d.tasks?.filter(t=>t.value!==null&&t.value!=='').length||0;return Math.round((f/Math.max(TASKS.length,1))*100)});
+
+  cont.innerHTML = `
+    <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.78rem;color:#34d399;display:flex;align-items:center;gap:0.5rem">
+      ✅ Showing ${last7.length} days from ${source}
+    </div>
+    <div class="summary-row">
+      <div class="summary-pill" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25)"><div class="pval" style="color:var(--accent)">📅 ${last7.length}</div><div class="plbl">Days Logged</div></div>
+      <div class="summary-pill" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25)"><div class="pval" style="color:var(--success)">⚡ ${avgScore}%</div><div class="plbl">Avg Score</div></div>
+      <div class="summary-pill" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25)"><div class="pval" style="color:var(--warn)">🔥 ${storage.getStreak()}</div><div class="plbl">Day Streak</div></div>
+    </div>
+    <div class="chart-card"><div class="chart-title">📱 Mobile Usage (hours)</div><div class="chart-wrap"><canvas id="chart-mobile"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">💧 Water Intake (glasses)</div><div class="chart-wrap"><canvas id="chart-water"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">😴 Sleep Hours</div><div class="chart-wrap"><canvas id="chart-sleep"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">📚 Homework Hours</div><div class="chart-wrap"><canvas id="chart-homework"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">✅ Task Completion (%)</div><div class="chart-wrap"><canvas id="chart-completion"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">📋 Detailed Log</div><div class="table-wrap"><table class="data-table">
+      <thead><tr><th>Date</th>${TASKS.map(t=>`<th>${t.icon} ${t.name}</th>`).join('')}<th>Score</th></tr></thead>
+      <tbody>${last7.map(day=>{const tm={};day.tasks?.forEach(t=>{tm[t.id]=t.value});const sc=calcScore((day.tasks||[]).map(t=>({id:t.id,value:t.value})));return`<tr><td>${day.date}</td>${TASKS.map(t=>`<td style="text-align:center">${tm[t.id]??'—'}</td>`).join('')}<td class="score-td">${sc}%</td></tr>`}).join('')}</tbody>
+    </table></div></div>`;
+
+  const cd = {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b6585',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#6b6585',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'}}}};
+  try{charts.mobile=new Chart(document.getElementById('chart-mobile'),{type:'line',data:{labels,datasets:[{data:getVals('mobile'),borderColor:'#8b5cf6',pointBackgroundColor:'#7c3aed',backgroundColor:'rgba(139,92,246,0.08)',fill:true,tension:0.4,borderWidth:2.5,pointRadius:4,spanGaps:true}]},options:cd});}catch(e){}
+  try{charts.water=new Chart(document.getElementById('chart-water'),{type:'bar',data:{labels,datasets:[{data:getVals('water'),backgroundColor:'rgba(6,182,212,0.7)',borderColor:'#06b6d4',borderRadius:6}]},options:cd});}catch(e){}
+  try{charts.sleep=new Chart(document.getElementById('chart-sleep'),{type:'bar',data:{labels,datasets:[{data:getVals('sleep'),backgroundColor:'rgba(167,139,250,0.7)',borderColor:'#a78bfa',borderRadius:6}]},options:cd});}catch(e){}
+  try{charts.homework=new Chart(document.getElementById('chart-homework'),{type:'bar',data:{labels,datasets:[{data:getVals('homework'),backgroundColor:'rgba(16,185,129,0.7)',borderColor:'#10b981',borderRadius:6}]},options:cd});}catch(e){}
+  const cl={...cd,scales:{...cd.scales,y:{...cd.scales.y,min:0,max:100}}};
+  try{charts.completion=new Chart(document.getElementById('chart-completion'),{type:'line',data:{labels:last7.map(d=>new Date(d.date).toLocaleDateString('en-US',{weekday:'short'})),datasets:[{data:completionPct,borderColor:'#10b981',pointBackgroundColor:'#059669',backgroundColor:'rgba(16,185,129,0.08)',fill:true,tension:0.4,borderWidth:2.5,pointRadius:4,spanGaps:true}]},options:cl});}catch(e){}
+}
+
+/* ════════════════════════════════════════════
+   WEEK NAVIGATION
+════════════════════════════════════════════ */
+let currentWeekOffset = 0; // 0 = this week, -1 = last week, etc.
+
+function getWeekDates(offset){
+  const dates = [];
+  const today = new Date();
+  // End of selected week = today minus offset*7 days
+  const endDate = new Date(today);
+  endDate.setDate(today.getDate() + (offset * 7));
+  for(let i=6; i>=0; i--){
+    const d = new Date(endDate);
+    d.setDate(endDate.getDate() - i);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
+function updateWeekLabel(){
+  const dates = getWeekDates(currentWeekOffset);
+  const start = new Date(dates[0]).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const end   = new Date(dates[6]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const lbl = document.getElementById('week-label');
+  if(lbl) lbl.textContent = currentWeekOffset === 0 ? `This Week: ${start} – ${end}` : currentWeekOffset === -1 ? `Last Week: ${start} – ${end}` : `${start} – ${end}`;
+  // Disable next button if already on current week
+  const nextBtn = document.getElementById('week-next-btn');
+  if(nextBtn) nextBtn.disabled = currentWeekOffset >= 0;
+  if(nextBtn) nextBtn.style.opacity = currentWeekOffset >= 0 ? '0.3' : '1';
+}
+
+function shiftWeek(dir){
+  const newOffset = currentWeekOffset + dir;
+  if(newOffset > 0) return; // can't go to future
+  currentWeekOffset = newOffset;
+  updateWeekLabel();
+  renderReport();
+}
+
+function goToCurrentWeek(){
+  currentWeekOffset = 0;
+  updateWeekLabel();
+  renderReport();
+}
+
+// Override _loadReportFromBackend to use week offset
+async function _loadWeekFromBackend(dates){
+  try{
+    if(!BACKEND_TASKS.length) await loadBackendTasks();
+    const results = await Promise.all(dates.map(async date=>{
+      try{
+        const data = await apiCall(`/habits/logs/${date}`);
+        if(data.logs && data.logs.length > 0){
+          const tasks = data.logs.map(log=>{
+            const bt = BACKEND_TASKS.find(t=>t.id===log.task_id);
+            const ft = bt ? TASKS.find(t=>t.name.toLowerCase()===bt.name.toLowerCase()) : null;
+            return ft ? {id:ft.id, value:log.value} : null;
+          }).filter(Boolean);
+          if(tasks.length){ storage.saveDay(date, tasks); return {date, tasks}; }
+        }
+        return null;
+      }catch(e){ return null; }
+    }));
+    return results.filter(Boolean);
+  }catch(e){ return null; }
+}
+
+/* ════════════════════════════════════════════
+   DATE LOOKUP — View any specific past date
+════════════════════════════════════════════ */
+async function lookupDate(){
+  const input = document.getElementById('date-lookup-input');
+  const result = document.getElementById('date-lookup-result');
+  const date = input?.value;
+  if(!date){ result.innerHTML=`<div style="color:var(--danger);font-size:0.82rem">⚠️ Please select a date</div>`; return; }
+
+  result.innerHTML = `<div style="font-size:0.82rem;color:var(--muted)">⏳ Loading data for ${date}...</div>`;
+
+  let dayData = null;
+
+  // Try backend first
+  if(AUTH_TOKEN){
+    try{
+      if(!BACKEND_TASKS.length) await loadBackendTasks();
+      const data = await apiCall(`/habits/logs/${date}`);
+      if(data.logs && data.logs.length > 0){
+        const tasks = data.logs.map(log=>{
+          const bt = BACKEND_TASKS.find(t=>t.id===log.task_id);
+          const ft = bt ? TASKS.find(t=>t.name.toLowerCase()===bt.name.toLowerCase()) : null;
+          return ft ? {id:ft.id, name:ft.name, icon:ft.icon, unit:ft.unit, value:log.value} : null;
+        }).filter(Boolean);
+        dayData = {date, tasks, score: data.productivity_score};
+      }
+    }catch(e){}
+  }
+
+  // Fallback to localStorage
+  if(!dayData){
+    const local = storage.getDay(date);
+    if(local && local.tasks?.length){
+      const score = calcScore(local.tasks.map(t=>({id:t.id,value:t.value})));
+      dayData = {date, tasks: local.tasks, score};
+    }
+  }
+
+  if(!dayData){
+    result.innerHTML = `<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:0.75rem;font-size:0.82rem;color:#f87171">📭 No data found for ${date}. Make sure you logged habits on that day.</div>`;
+    return;
+  }
+
+  const dateLabel = new Date(date).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const rows = dayData.tasks.map(t=>{
+    const def = TASKS.find(td=>td.id===t.id);
+    const limit = def?.limit||1;
+    const pct = def?.lowWarn ? Math.min(100,Math.round((t.value/limit)*100)) : t.value<=limit?100:Math.max(0,100-((t.value-limit)/limit)*100);
+    const col = pct>=80?'var(--success)':pct>=50?'var(--warn)':'var(--danger)';
+    return `<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:1.2rem">${t.icon||def?.icon||'📌'}</span>
+      <div style="flex:1">
+        <div style="font-size:0.82rem;font-weight:600">${t.name||def?.name||t.id}</div>
+        <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:4px">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:2px"></div>
+        </div>
+      </div>
+      <span style="font-size:0.82rem;font-weight:700;color:${col}">${t.value} ${t.unit||def?.unit||''}</span>
+    </div>`;
+  }).join('');
+
+  result.innerHTML = `
+    <div style="background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:12px;padding:1rem;margin-top:0.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+        <div style="font-size:0.85rem;font-weight:700;color:#c4b5fd">📅 ${dateLabel}</div>
+        <div style="font-size:1rem;font-weight:800;color:${dayData.score>=80?'var(--success)':dayData.score>=50?'var(--warn)':'var(--danger)'}">⚡ ${dayData.score}%</div>
+      </div>
+      ${rows}
+      ${dayData.tasks.length===0?'<div style="color:var(--muted);font-size:0.82rem;text-align:center">No habits logged</div>':''}
+    </div>`;
+}
+
+/* ════════════════════════════════════════════
+   AI INSIGHTS — Enhanced with pattern learning
+════════════════════════════════════════════ */
+function renderInsights(){
+  const allData = storage.getAll();
+  const allDays = Object.values(allData).sort((a,b)=>a.date>b.date?1:-1);
+  const last3=storage.getLast3(), last7=storage.getLast7(), streak=storage.getStreak();
+  const sugs=generateSuggestions(last3), cont=document.getElementById('insights-container');
+  const totalDays = allDays.length;
+
+  const avgScores=last7.map(d=>calcScore((d.tasks||[]).map(t=>({id:t.id,value:t.value}))));
+  let trend='stable';
+  if(avgScores.length>1){const diff=avgScores[avgScores.length-1]-avgScores[0];if(diff>5)trend='improving';else if(diff<-5)trend='declining'}
+  const tc=trend==='improving'?'var(--success)':trend==='declining'?'var(--danger)':'var(--accent)';
+  const ti=trend==='improving'?'📈':trend==='declining'?'📉':'➡️';
+  const tm=last7.length<2?'Log at least 2 days to see your trend.':`Productivity is ${ti} ${trend} over ${last7.length} days. ${trend==='improving'?'Keep the momentum!':trend==='declining'?'Try to log all activities daily.':'Consistent — push for improvement!'}`;
+  const sm=streak===0?'No streak yet. Start today!':streak<3?`${streak}-day streak! Keep going!`:streak<7?`Amazing ${streak}-day streak! 🔥`:streak<14?`🏆 Incredible ${streak}-day streak!`:`🌟 Legendary ${streak}-day streak! You're unstoppable!`;
+
+  // Pattern learning after 3+ days
+  const patternInsights = totalDays >= 3 ? _generatePatternInsights(allDays) : [];
+  // AI task suggestions after 3+ days
+  const aiTaskSuggestions = totalDays >= 3 ? _generateAITaskSuggestions(allDays) : [];
+  // AI reminder suggestions
+  const aiReminderSuggestions = totalDays >= 3 ? _generateAIReminderSuggestions(allDays) : [];
+
+  const latestDay=last3[last3.length-1];
+  const progBars=latestDay?TASKS.map(def=>{const t=latestDay.tasks?.find(x=>x.id===def.id);const v=t?.value??0;const pct=def.lowWarn?Math.min(100,Math.round((v/def.limit)*100)):Math.min(100,Math.round(Math.max(0,(1-(v-def.limit)/def.limit))*100));const col=pct>=80?'var(--success)':pct>=50?'var(--warn)':'var(--danger)';return`<div class="prog-row"><div class="prog-head"><span class="prog-name">${def.icon} ${def.name}</span><span class="prog-val">${v}/${def.limit} ${def.unit}</span></div><div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${col}"></div></div></div>`}).join(''):null;
+
+  cont.innerHTML=`
+    <div style="background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(79,70,229,0.12));border:1px solid rgba(139,92,246,0.25);border-radius:14px;padding:1.2rem;margin-bottom:1.2rem;display:flex;gap:0.9rem;align-items:center">
+      <span style="font-size:2.2rem">🤖</span>
+      <div>
+        <div style="font-family:var(--serif);font-weight:700;font-size:1.05rem;color:#c4b5fd">AI Analysis Engine</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:3px">Based on ${totalDays} days of your data${totalDays>=3?' · Pattern learning active ✅':' · Log 3+ days to unlock patterns'}</div>
+      </div>
+    </div>
+
+    <div class="insight-card" style="background:${tc}0d;border:1px solid ${tc}30;margin-bottom:1rem"><span class="insight-icon">🧠</span><div><div class="insight-title" style="color:${tc}">Productivity Trend</div><div class="insight-body">${tm}</div></div></div>
+    <div class="insight-card" style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.25);margin-bottom:1rem"><span class="insight-icon">🔥</span><div><div class="insight-title" style="color:var(--warn)">Streak Analysis</div><div class="insight-body">${sm}</div></div></div>
+    <div class="insight-card" style="background:rgba(139,92,246,0.07);border:1px solid rgba(139,92,246,0.25);margin-bottom:1.5rem"><span class="insight-icon">📊</span><div><div class="insight-title" style="color:var(--accent)">Total Days Tracked</div><div class="insight-body">${totalDays} days logged in total. ${totalDays>=7?'Great consistency!':totalDays>=3?'Patterns are forming!':'Keep logging daily!'}</div></div></div>
+
+    ${patternInsights.length>0?`
+    <div style="font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.9rem">🔍 Learned Patterns (${totalDays} days)</div>
+    ${patternInsights.map(p=>`<div class="insight-card" style="background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.25);margin-bottom:0.8rem"><span class="insight-icon">${p.icon}</span><div><div class="insight-title" style="color:var(--accent2)">${p.title}</div><div class="insight-body">${p.body}</div></div></div>`).join('')}
+    `:''}
+
+    <div style="font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.9rem">💡 Habit Suggestions</div>
+    ${sugs.length===0?`<div class="empty-state"><div class="es-icon">📭</div><p>Log 2+ days for AI-powered habit insights.</p></div>`:sugs.map(s=>`<div class="suggestion ${s.type}" style="margin-bottom:0.9rem"><span class="sug-icon">${s.icon}</span><div><div class="sug-title">${s.title}</div><div class="sug-body">${s.msg}</div></div></div>`).join('')}
+
+    ${aiTaskSuggestions.length>0?`
+    <div style="font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin:1.2rem 0 0.9rem">🆕 AI Suggested New Tasks</div>
+    <div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-bottom:1.2rem">
+      ${aiTaskSuggestions.map(t=>`<div style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);border-radius:10px;padding:0.5rem 0.9rem;font-size:0.8rem;display:flex;align-items:center;gap:0.4rem"><span>${t.icon}</span><span style="color:var(--text)">${t.name}</span><span style="color:var(--muted);font-size:0.72rem">${t.reason}</span></div>`).join('')}
+    </div>`:''}
+
+    ${aiReminderSuggestions.length>0?`
+    <div style="font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.9rem">⏰ AI Suggested Reminders</div>
+    ${aiReminderSuggestions.map(r=>`<div style="background:rgba(249,115,22,0.07);border:1px solid rgba(249,115,22,0.2);border-radius:12px;padding:0.8rem 1rem;margin-bottom:0.6rem;display:flex;gap:0.75rem;align-items:center"><span style="font-size:1.3rem">${r.icon}</span><div><div style="font-size:0.82rem;font-weight:700;color:var(--rem)">${r.title}</div><div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${r.reason}</div></div></div>`).join('')}
+    `:''}
+
+    ${progBars?`<div style="font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin:1.5rem 0 0.9rem">📅 Latest Day Breakdown</div><div class="chart-card">${progBars}</div>`:''}
+  `;
+}
+
+// ── Pattern learning engine ──
+function _generatePatternInsights(allDays){
+  const insights = [];
+  TASKS.forEach(def=>{
+    const vals = allDays.map(d=>d.tasks?.find(t=>t.id===def.id)?.value).filter(v=>v!=null&&v!=='');
+    if(vals.length < 3) return;
+    const avg = vals.reduce((a,b)=>a+parseFloat(b),0)/vals.length;
+    const recent = vals.slice(-3).map(Number);
+    const recentAvg = recent.reduce((a,b)=>a+b,0)/recent.length;
+    // Trend
+    if(def.lowWarn){
+      if(recentAvg < avg*0.8) insights.push({icon:def.icon,title:`${def.name} is dropping`,body:`Your recent ${def.name.toLowerCase()} avg (${recentAvg.toFixed(1)}) is lower than your overall avg (${avg.toFixed(1)} ${def.unit}). Try to be more consistent.`});
+      else if(recentAvg > avg*1.2) insights.push({icon:'📈',title:`${def.name} improving!`,body:`Great job! Recent avg ${recentAvg.toFixed(1)} ${def.unit} is better than your overall ${avg.toFixed(1)} ${def.unit}.`});
+    } else {
+      if(recentAvg > avg*1.2) insights.push({icon:'⚠️',title:`${def.name} increasing`,body:`Your ${def.name.toLowerCase()} has been going up recently (${recentAvg.toFixed(1)} ${def.unit} vs avg ${avg.toFixed(1)} ${def.unit}). Consider reducing it.`});
+    }
+    // Consistency
+    const missing = allDays.filter(d=>!d.tasks?.find(t=>t.id===def.id&&t.value!=null&&t.value!=='')).length;
+    const missingPct = Math.round((missing/allDays.length)*100);
+    if(missingPct > 40) insights.push({icon:'📋',title:`${def.name} often skipped`,body:`You skip logging ${def.name.toLowerCase()} ${missingPct}% of days. Try to track it every day for better insights.`});
+  });
+  return insights.slice(0,5);
+}
+
+// ── AI task suggestions based on patterns ──
+function _generateAITaskSuggestions(allDays){
+  const suggestions = [];
+  const existingIds = TASKS.map(t=>t.id);
+  const avgSleep = _habitAvg(allDays,'sleep');
+  const avgMobile = _habitAvg(allDays,'mobile');
+  const avgWater = _habitAvg(allDays,'water');
+  if(avgSleep < 7 && !existingIds.includes('meditation')) suggestions.push({icon:'🧘',name:'Meditation',reason:'— helps sleep quality'});
+  if(avgMobile > 3 && !existingIds.includes('reading')) suggestions.push({icon:'📖',name:'Reading',reason:'— replaces screen time'});
+  if(avgWater < 6 && !existingIds.includes('fruits')) suggestions.push({icon:'🍎',name:'Fruits & Veggies',reason:'— boosts hydration'});
+  if(!existingIds.includes('exercise')) suggestions.push({icon:'🏃',name:'Exercise',reason:'— improves all habits'});
+  if(!existingIds.includes('journaling')) suggestions.push({icon:'📝',name:'Journaling',reason:'— builds self-awareness'});
+  return suggestions.slice(0,4);
+}
+
+// ── AI reminder suggestions ──
+function _generateAIReminderSuggestions(allDays){
+  const suggestions = [];
+  const avgWater = _habitAvg(allDays,'water');
+  const avgSleep = _habitAvg(allDays,'sleep');
+  const avgHomework = _habitAvg(allDays,'homework');
+  if(avgWater < 6) suggestions.push({icon:'💧',title:'Drink Water Reminder',reason:`Your avg water is ${avgWater.toFixed(1)} glasses. Add reminders every 2 hours.`});
+  if(avgSleep < 7) suggestions.push({icon:'😴',title:'Bedtime Reminder',reason:`Avg sleep ${avgSleep.toFixed(1)} hrs. Set a 10pm reminder to wind down.`});
+  if(avgHomework < 1) suggestions.push({icon:'📚',title:'Study Time Reminder',reason:'Low study hours detected. Set a 5pm daily reminder.'});
+  return suggestions;
+}
+
+function _habitAvg(allDays, id){
+  const vals = allDays.map(d=>d.tasks?.find(t=>t.id===id)?.value).filter(v=>v!=null&&v!=='').map(Number);
+  return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+}
+
+
+/* ════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════ */
+let toastTimer;
+function showToast(msg,isVoice=false,isRem=false){
+  const t=document.getElementById('toast');t.textContent=msg;
+  t.className='toast show'+(isVoice?' voice-toast':isRem?' rem-toast':'');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+/* ════════════════════════════════════════════
+   TAB SWITCHING
+════════════════════════════════════════════ */
+function switchTab(id){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+id));
+  // Scroll to top of content area smoothly — prevents jumping to bottom
+  window.scrollTo({top:0, behavior:'smooth'});
+  if(id==='reminders')renderRemindersTab();
+  if(id==='report' && !reportLoading)renderReport();
+  if(id==='insights')renderInsights();
+}
+document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',(e)=>{e.preventDefault();switchTab(btn.dataset.tab)}));
+
+/* ════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+════════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal();closeVoiceHUD();closeRemModal();dismissReminder()}
+  if(e.ctrlKey&&e.code==='Space'){e.preventDefault();toggleVoiceHUD()}
+  if(e.ctrlKey&&e.key==='r'){e.preventDefault();switchTab('reminders');document.querySelector('[data-tab="reminders"]').click()}
+});
+
+/* ════════════════════════════════════════════
+   SEED DEFAULT REMINDERS (first run)
+════════════════════════════════════════════ */
+function seedDefaultReminders(){
+  if(getReminders().length>0)return;
+  const defaults=[
+    {id:'rem_def_1',label:'Drink a glass of water',time:'08:00',icon:'💧',note:'Start your morning hydrated',days:[0,1,2,3,4,5,6],category:'water',sound:'bell',enabled:true,createdAt:new Date().toISOString()},
+    {id:'rem_def_2',label:"Don't skip lunch!",time:'12:00',icon:'🍽️',note:'Fuel your brain',days:[1,2,3,4,5],category:'health',sound:'chime',enabled:true,createdAt:new Date().toISOString()},
+    {id:'rem_def_3',label:'Drink another glass of water',time:'15:00',icon:'💧',note:'Afternoon hydration',days:[0,1,2,3,4,5,6],category:'water',sound:'bell',enabled:true,createdAt:new Date().toISOString()},
+    {id:'rem_def_4',label:'Start homework',time:'17:00',icon:'📚',note:'Limit phone first',days:[1,2,3,4,5],category:'work',sound:'ding',enabled:true,createdAt:new Date().toISOString()},
+    {id:'rem_def_5',label:'Screen-off time',time:'21:30',icon:'📵',note:'Wind down for sleep',days:[0,1,2,3,4,5,6],category:'sleep',sound:'bell',enabled:true,createdAt:new Date().toISOString()},
+    {id:'rem_def_6',label:'Time to sleep!',time:'22:00',icon:'😴',note:'8 hours of sleep target',days:[0,1,2,3,4,5,6],category:'sleep',sound:'chime',enabled:true,createdAt:new Date().toISOString()},
+  ];
+  saveReminders(defaults);
+}
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+function init(){
+  document.getElementById('date-str').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('today-sub').textContent='📅 '+new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  seedDefaultReminders();
+  refreshHeader();
+  renderTaskCards();
+  renderVoiceLog();
+  startReminderChecker();
+  updateWeekLabel(); // initialize week label
+  // Set date lookup max to today
+  const dateInput = document.getElementById('date-lookup-input');
+  if(dateInput) dateInput.max = new Date().toISOString().split('T')[0];
+  if(!voiceSupported){document.getElementById('voice-unsupported').style.display='block';document.getElementById('voice-fab').style.display='none';document.getElementById('voice-main-btn').style.display='none'}
+}
+
+const API_BASE = 'http://localhost:8000/api';
+let AUTH_TOKEN = localStorage.getItem('habitos_token') || '';
+let BACKEND_USER = localStorage.getItem('habitos_user') || '';
+let BACKEND_TASKS = [];
+
+async function apiCall(endpoint, method='GET', body=null){
+  const headers = {'Content-Type':'application/json','Authorization':`Bearer ${AUTH_TOKEN}`};
+  const options = {method, headers};
+  if(body) options.body = JSON.stringify(body);
+  const res = await fetch(`${API_BASE}${endpoint}`, options);
+  if(!res.ok){ const err = await res.text(); throw new Error(`${res.status}: ${err}`); }
+  return res.json();
+}
+
+function addSyncLog(msg, success=true){
+  const log = document.getElementById('sync-log');
+  if(!log) return;
+  const time = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  const item = document.createElement('div');
+  item.style.cssText='display:flex;align-items:center;gap:0.5rem;font-size:0.75rem;padding:0.35rem 0.5rem;border-radius:7px;background:rgba(255,255,255,0.02)';
+  item.innerHTML=`<span>${success?'✅':'❌'}</span><span style="flex:1;color:var(--dim)">${msg}</span><span style="color:var(--muted);flex-shrink:0">${time}</span>`;
+  // Remove "no syncs yet" placeholder
+  if(log.children.length===1 && log.children[0].style.textAlign==='center') log.innerHTML='';
+  log.prepend(item);
+  if(log.children.length>10) log.removeChild(log.lastChild);
+}
+
+function updateBackendStatusUI(connected, username=''){
+  const dot = document.getElementById('backend-dot');
+  const txt = document.getElementById('backend-status-text');
+  const loginCard = document.getElementById('backend-login-card');
+  const connCard = document.getElementById('backend-connected-card');
+  const userDisplay = document.getElementById('be-username-display');
+  if(!dot) return;
+  if(connected){
+    dot.style.background = 'var(--success)';
+    dot.style.animation = 'dotPulse 2s infinite';
+    txt.textContent = `Connected as ${username}`;
+    if(loginCard) loginCard.style.display = 'none';
+    if(connCard) connCard.style.display = 'block';
+    if(userDisplay) userDisplay.textContent = username;
+  } else {
+    dot.style.background = 'var(--muted)';
+    dot.style.animation = 'none';
+    txt.textContent = 'Not connected';
+    if(loginCard) loginCard.style.display = 'block';
+    if(connCard) connCard.style.display = 'none';
+  }
+}
+
+async function loadBackendTasks(){
+  try{
+    BACKEND_TASKS = await apiCall('/habits/tasks');
+    console.log('✅ Backend tasks:', BACKEND_TASKS.map(t=>`${t.id}:${t.name}`));
+  } catch(e){ BACKEND_TASKS = []; }
+}
+
+function getBackendTaskId(frontendTask){
+  let match = BACKEND_TASKS.find(bt => bt.name.toLowerCase()===frontendTask.name.toLowerCase());
+  if(!match) match = BACKEND_TASKS.find(bt =>
+    bt.name.toLowerCase().includes(frontendTask.name.toLowerCase()) ||
+    frontendTask.name.toLowerCase().includes(bt.name.toLowerCase())
+  );
+  return match ? match.id : null;
+}
+
+async function handleBackendLogin(){
+  const username = document.getElementById('be-username')?.value.trim();
+  const password = document.getElementById('be-password')?.value.trim();
+  if(!username || !password){ showToast('⚠️ Enter username and password'); return; }
+  const ok = await window.loginToBackend(username, password);
+  if(ok){
+    updateBackendStatusUI(true, username);
+    addSyncLog(`Logged in as ${username}`);
+    // Auto-load today's data
+    await window.loadFromBackend();
+    addSyncLog('Auto-loaded today\'s data');
+  } else {
+    addSyncLog('Login failed', false);
+  }
+}
+
+function handleBackendLogout(){
+  AUTH_TOKEN = '';
+  BACKEND_USER = '';
+  BACKEND_TASKS = [];
+  localStorage.removeItem('habitos_token');
+  localStorage.removeItem('habitos_user');
+  showToast('👋 Logged out successfully');
+  const loginURL = window.location.href.replace(/[^/]*$/, 'login.html');
+  setTimeout(()=> window.location.replace(loginURL), 1000);
+}
+
+window.loginToBackend = async function(username, password){
+  try{
+    const data = await fetch(`${API_BASE}/auth/login`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username, password})
+    }).then(r=>r.json());
+    if(data.access_token){
+      AUTH_TOKEN = data.access_token;
+      BACKEND_USER = username;
+      localStorage.setItem('habitos_token', AUTH_TOKEN);
+      localStorage.setItem('habitos_user', username);
+      showToast('✅ Connected to backend!');
+      await loadBackendTasks();
+      return true;
+    }
+    showToast('❌ Login failed');
+    return false;
+  } catch(e){
+    showToast('❌ Backend not running!');
+    return false;
+  }
+};
+
+window.saveToBackend = async function(){
+  if(!AUTH_TOKEN){ showToast('⚠️ Login first in Backend tab!'); return; }
+  if(!BACKEND_TASKS.length) await loadBackendTasks();
+  const today = new Date().toISOString().split('T')[0];
+  const entries = [];
+  TASKS.forEach(task=>{
+    const inp = document.getElementById(`inp-${task.id}`);
+    const value = parseFloat(inp?.value || 0);
+    if(isNaN(value) || value <= 0) return;
+    const backendId = getBackendTaskId(task);
+    if(backendId) entries.push({task_id: backendId, value});
+    else console.warn(`No backend match for: ${task.name}`);
+  });
+  if(!entries.length){ showToast('⚠️ Enter some values first!'); return; }
+  try{
+    const result = await apiCall('/habits/logs/bulk','POST',{log_date:today, entries});
+    showToast(`✅ Saved ${result.saved} habits to database!`);
+    addSyncLog(`Saved ${result.saved} habits for ${today}`);
+  } catch(e){
+    showToast('❌ Save failed!');
+    addSyncLog('Save failed: '+e.message, false);
+  }
+};
+
+window.loadFromBackend = async function(){
+  if(!AUTH_TOKEN){ showToast('⚠️ Login first in Backend tab!'); return; }
+  if(!BACKEND_TASKS.length) await loadBackendTasks();
+  const today = new Date().toISOString().split('T')[0];
+  try{
+    const data = await apiCall(`/habits/logs/${today}`);
+    if(data.logs && data.logs.length > 0){
+      data.logs.forEach(log=>{
+        const backendTask = BACKEND_TASKS.find(bt=>bt.id===log.task_id);
+        if(!backendTask) return;
+        const frontendTask = TASKS.find(t=>t.name.toLowerCase()===backendTask.name.toLowerCase());
+        if(!frontendTask) return;
+        const inp = document.getElementById(`inp-${frontendTask.id}`);
+        if(inp){ inp.value = log.value; updateStatus(frontendTask.id, log.value); }
+      });
+      updateLiveScore();
+      showToast(`✅ Loaded! Score: ${data.productivity_score}%`);
+      addSyncLog(`Loaded ${data.logs.length} habits — Score: ${data.productivity_score}%`);
+    } else {
+      showToast('📭 No data saved for today yet');
+      addSyncLog('No data found for today');
+    }
+  } catch(e){
+    showToast('❌ Load failed!');
+    addSyncLog('Load failed: '+e.message, false);
+  }
+};
+
+// ── SMART STARTUP — auto login, load today + past days ──
+async function smartStartup(){
+  if(!AUTH_TOKEN) return;
+
+  try{
+    // Step 1: Load backend tasks (get IDs)
+    await loadBackendTasks();
+
+    // Step 2: Update UI to show connected
+    updateBackendStatusUI(true, BACKEND_USER || 'user');
+
+    // Step 3: Load TODAY's data into input fields
+    const today = new Date().toISOString().split('T')[0];
+    try{
+      const data = await apiCall(`/habits/logs/${today}`);
+      if(data.logs && data.logs.length > 0){
+        data.logs.forEach(log=>{
+          const backendTask = BACKEND_TASKS.find(bt=>bt.id===log.task_id);
+          if(!backendTask) return;
+          const frontendTask = TASKS.find(t=>t.name.toLowerCase()===backendTask.name.toLowerCase());
+          if(!frontendTask) return;
+          const inp = document.getElementById(`inp-${frontendTask.id}`);
+          if(inp){ inp.value = log.value; updateStatus(frontendTask.id, log.value); }
+        });
+        updateLiveScore();
+        // Save today to localStorage as backup
+        const taskValues = TASKS.map(t=>({id:t.id,value:document.getElementById(`inp-${t.id}`)?.value||''}));
+        storage.saveDay(today, taskValues);
+        addSyncLog(`Auto-loaded today — Score: ${data.productivity_score}%`);
+      }
+    }catch(e){ console.warn('Today load failed:', e.message); }
+
+    // Step 4: Load LAST 7 DAYS and save to localStorage
+    // This ensures Weekly Report always has data even if backend goes offline
+    const dates=[];
+    for(let i=6;i>=0;i--){
+      const d=new Date(); d.setDate(d.getDate()-i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+    // Load past days silently in background
+    Promise.all(dates.map(async date=>{
+      if(date===today) return; // already loaded above
+      try{
+        const data = await apiCall(`/habits/logs/${date}`);
+        if(data.logs && data.logs.length > 0){
+          const tasks = data.logs.map(log=>{
+            const bt = BACKEND_TASKS.find(t=>t.id===log.task_id);
+            const ft = bt ? TASKS.find(t=>t.name.toLowerCase()===bt.name.toLowerCase()) : null;
+            return ft ? {id:ft.id, value:log.value} : null;
+          }).filter(Boolean);
+          if(tasks.length) storage.saveDay(date, tasks);
+        }
+      }catch(e){}
+    })).then(()=>{
+      refreshHeader(); // update streak count after loading history
+    });
+
+  }catch(e){
+    console.warn('⚠️ Backend offline — using saved local data');
+    // Load from localStorage if backend is down
+    const saved = storage.getDay(new Date().toISOString().split('T')[0]);
+    if(saved && saved.tasks){
+      saved.tasks.forEach(t=>{
+        const inp = document.getElementById(`inp-${t.id}`);
+        if(inp && t.value){ inp.value=t.value; updateStatus(t.id, t.value); }
+      });
+      updateLiveScore();
+    }
+  }
+}
+
+// Run smart startup when page loads
+smartStartup();
+
+init();
+</script>
+</body>
+</html>

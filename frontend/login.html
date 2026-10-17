@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>HabitOS — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#080612;--bg2:#0f0d1a;--bg3:#161326;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8e3f8;--muted:#6b6585;--dim:#9b94b8;
+  --accent:#8b5cf6;--accent2:#06b6d4;
+  --success:#10b981;--danger:#ef4444;--warn:#f59e0b;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'Syne',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:var(--sans)}
+body{
+  background:var(--bg);color:var(--text);
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;overflow:hidden;position:relative;
+}
+
+/* Animated background */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%,rgba(139,92,246,0.18) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 100%,rgba(6,182,212,0.12) 0%,transparent 50%),
+    radial-gradient(ellipse 40% 40% at 60% 40%,rgba(139,92,246,0.06) 0%,transparent 60%);
+  pointer-events:none;z-index:0;
+  animation:bgShift 8s ease-in-out infinite alternate;
+}
+@keyframes bgShift{
+  0%{opacity:0.8;transform:scale(1)}
+  100%{opacity:1;transform:scale(1.05)}
+}
+
+/* Floating orbs */
+.orb{position:fixed;border-radius:50%;pointer-events:none;filter:blur(60px);opacity:0.15;z-index:0}
+.orb1{width:400px;height:400px;background:var(--accent);top:-100px;left:-100px;animation:float1 10s ease-in-out infinite}
+.orb2{width:300px;height:300px;background:var(--accent2);bottom:-80px;right:-80px;animation:float2 12s ease-in-out infinite}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,30px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-30px,-20px)}}
+
+/* Main card */
+.auth-card{
+  position:relative;z-index:1;
+  background:rgba(15,13,26,0.9);
+  border:1px solid var(--border2);
+  border-radius:28px;
+  padding:2.5rem 2rem;
+  width:100%;max-width:420px;
+  backdrop-filter:blur(20px);
+  box-shadow:0 24px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(139,92,246,0.1);
+  animation:cardIn 0.5s cubic-bezier(.4,0,.2,1);
+}
+@keyframes cardIn{
+  from{opacity:0;transform:translateY(24px) scale(0.97)}
+  to{opacity:1;transform:none}
+}
+
+/* Top glow line */
+.auth-card::before{
+  content:'';position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+  width:180px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  border-radius:1px;
+}
+
+/* Logo */
+.auth-logo{
+  text-align:center;margin-bottom:2rem;
+}
+.auth-logo .logo-text{
+  font-family:var(--serif);font-size:2rem;font-weight:700;color:#fff;
+  letter-spacing:-0.03em;display:block;margin-bottom:0.25rem;
+}
+.auth-logo .logo-text span{color:var(--accent)}
+.auth-logo .logo-sub{font-size:0.78rem;color:var(--muted)}
+
+/* Tabs */
+.auth-tabs{
+  display:flex;background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);border-radius:12px;
+  padding:4px;margin-bottom:1.8rem;gap:4px;
+}
+.auth-tab{
+  flex:1;padding:0.6rem;border:none;background:transparent;
+  color:var(--muted);font-size:0.82rem;font-weight:600;
+  font-family:var(--sans);border-radius:9px;cursor:pointer;
+  transition:all 0.2s;letter-spacing:0.03em;
+}
+.auth-tab.active{
+  background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(79,70,229,0.3));
+  color:#c4b5fd;border:1px solid rgba(139,92,246,0.4);
+  box-shadow:0 2px 8px rgba(139,92,246,0.2);
+}
+
+/* Form panels */
+.auth-panel{display:none;animation:fadeUp 0.25s ease}
+.auth-panel.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Form elements */
+.form-group{margin-bottom:1rem}
+.form-label{
+  display:block;font-size:0.72rem;font-weight:700;
+  color:var(--dim);letter-spacing:0.08em;text-transform:uppercase;
+  margin-bottom:0.4rem;
+}
+.form-input{
+  width:100%;background:rgba(255,255,255,0.04);
+  border:1px solid var(--border2);border-radius:11px;
+  padding:0.75rem 1rem;color:var(--text);font-size:0.9rem;
+  font-family:var(--sans);transition:all 0.2s;
+}
+.form-input:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(139,92,246,0.15);
+  background:rgba(139,92,246,0.05);
+}
+.form-input::placeholder{color:var(--muted)}
+.form-input.error{border-color:var(--danger);box-shadow:0 0 0 3px rgba(239,68,68,0.12)}
+.form-input.success{border-color:var(--success);box-shadow:0 0 0 3px rgba(16,185,129,0.12)}
+
+/* Input with icon */
+.input-wrap{position:relative}
+.input-icon{
+  position:absolute;left:0.9rem;top:50%;transform:translateY(-50%);
+  font-size:1rem;pointer-events:none;
+}
+.input-wrap .form-input{padding-left:2.5rem}
+
+/* Password toggle */
+.pw-toggle{
+  position:absolute;right:0.9rem;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:1rem;padding:0;transition:color 0.2s;
+}
+.pw-toggle:hover{color:var(--dim)}
+
+/* Submit button */
+.btn-submit{
+  width:100%;padding:0.9rem;border:none;border-radius:12px;
+  background:linear-gradient(135deg,#7c3aed,#4f46e5);
+  color:#fff;font-size:0.95rem;font-weight:700;
+  font-family:var(--sans);cursor:pointer;letter-spacing:0.03em;
+  transition:all 0.2s;margin-top:0.5rem;
+  box-shadow:0 4px 20px rgba(124,58,237,0.35);
+  display:flex;align-items:center;justify-content:center;gap:0.5rem;
+}
+.btn-submit:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(124,58,237,0.5)}
+.btn-submit:active{transform:none}
+.btn-submit:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.btn-submit .spinner{
+  width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);
+  border-top-color:#fff;border-radius:50%;
+  animation:spin 0.7s linear infinite;display:none;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn-submit.loading .spinner{display:block}
+.btn-submit.loading .btn-text{display:none}
+
+/* Error / success messages */
+.auth-msg{
+  border-radius:10px;padding:0.75rem 1rem;
+  font-size:0.82rem;font-weight:600;margin-bottom:1rem;
+  display:none;align-items:center;gap:0.6rem;
+}
+.auth-msg.error{
+  background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
+  color:#f87171;display:flex;
+}
+.auth-msg.success{
+  background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
+  color:#34d399;display:flex;
+}
+
+/* Password strength */
+.pw-strength{margin-top:0.4rem;display:none}
+.pw-strength-bar{
+  height:3px;border-radius:2px;background:rgba(255,255,255,0.08);
+  overflow:hidden;margin-bottom:0.3rem;
+}
+.pw-strength-fill{height:100%;border-radius:2px;transition:all 0.3s;width:0}
+.pw-strength-text{font-size:0.68rem;color:var(--muted)}
+
+/* Divider */
+.auth-divider{
+  display:flex;align-items:center;gap:0.75rem;
+  margin:1.2rem 0;color:var(--muted);font-size:0.72rem;
+}
+.auth-divider::before,.auth-divider::after{
+  content:'';flex:1;height:1px;background:var(--border2);
+}
+
+/* Features list */
+.features{
+  display:flex;flex-direction:column;gap:0.5rem;
+  margin-bottom:1.5rem;
+}
+.feature-item{
+  display:flex;align-items:center;gap:0.65rem;
+  font-size:0.78rem;color:var(--dim);
+}
+.feature-item .fi{font-size:1rem;flex-shrink:0}
+
+/* Footer */
+.auth-footer{
+  text-align:center;margin-top:1.5rem;
+  font-size:0.72rem;color:var(--muted);
+}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:2rem;right:1.5rem;z-index:9999;
+  background:#1e1b2e;border:1px solid var(--accent);
+  border-radius:12px;padding:0.8rem 1.2rem;
+  color:var(--text);font-size:0.85rem;font-weight:600;
+  transform:translateY(100px);opacity:0;
+  transition:all 0.3s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;max-width:300px;
+}
+.toast.show{transform:none;opacity:1}
+.toast.error-toast{border-color:var(--danger)}
+.toast.success-toast{border-color:var(--success)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#4c1d95;border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="auth-card">
+
+  <!-- Logo -->
+  <div class="auth-logo">
+    <span class="logo-text">✦ Habit<span>OS</span></span>
+    <span class="logo-sub">Your smart habit tracking companion</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="auth-tabs">
+    <button class="auth-tab active" onclick="switchAuthTab('signin')">Sign In</button>
+    <button class="auth-tab" onclick="switchAuthTab('signup')">Create Account</button>
+  </div>
+
+  <!-- SIGN IN PANEL -->
+  <div class="auth-panel active" id="panel-signin">
+    <div class="auth-msg" id="signin-msg"></div>
+
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <div class="input-wrap">
+        <span class="input-icon">👤</span>
+        <input class="form-input" id="si-username" type="text"
+          placeholder="Enter your username" autocomplete="username"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <div class="input-wrap">
+        <span class="input-icon">🔒</span>
+        <input class="form-input" id="si-password" type="password"
+          placeholder="Enter your password" autocomplete="current-password"/>
+        <button class="pw-toggle" onclick="togglePw('si-password',this)" type="button">👁️</button>
+      </div>
+    </div>
+
+    <button class="btn-submit" id="signin-btn" onclick="handleSignIn()">
+      <div class="spinner"></div>
+      <span class="btn-text">🚀 Sign In</span>
+    </button>
+
+    <div class="auth-divider">or</div>
+
+    <div class="features">
+      <div class="feature-item"><span class="fi">📊</span> Track habits with smart analytics</div>
+      <div class="feature-item"><span class="fi">🎤</span> Voice input for quick logging</div>
+      <div class="feature-item"><span class="fi">🔔</span> Smart reminders that actually help</div>
+      <div class="feature-item"><span class="fi">🤖</span> AI insights personalized for you</div>
+    </div>
+  </div>
+
+  <!-- SIGN UP PANEL -->
+  <div class="auth-panel" id="panel-signup">
+    <div class="auth-msg" id="signup-msg"></div>
+
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <div class="input-wrap">
+        <span class="input-icon">👤</span>
+        <input class="form-input" id="su-username" type="text"
+          placeholder="Choose a username (min 3 chars)"
+          autocomplete="username" oninput="validateSignupForm()"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Email <span style="color:var(--muted);font-weight:400;text-transform:none">(optional)</span></label>
+      <div class="input-wrap">
+        <span class="input-icon">📧</span>
+        <input class="form-input" id="su-email" type="email"
+          placeholder="your@email.com" autocomplete="email"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <div class="input-wrap">
+        <span class="input-icon">🔒</span>
+        <input class="form-input" id="su-password" type="password"
+          placeholder="Min 6 characters" autocomplete="new-password"
+          oninput="checkPasswordStrength(this.value)"/>
+        <button class="pw-toggle" onclick="togglePw('su-password',this)" type="button">👁️</button>
+      </div>
+      <div class="pw-strength" id="pw-strength">
+        <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-fill"></div></div>
+        <div class="pw-strength-text" id="pw-text"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Confirm Password</label>
+      <div class="input-wrap">
+        <span class="input-icon">🔒</span>
+        <input class="form-input" id="su-confirm" type="password"
+          placeholder="Repeat your password" autocomplete="new-password"
+          oninput="validateSignupForm()"/>
+        <button class="pw-toggle" onclick="togglePw('su-confirm',this)" type="button">👁️</button>
+      </div>
+    </div>
+
+    <button class="btn-submit" id="signup-btn" onclick="handleSignUp()">
+      <div class="spinner"></div>
+      <span class="btn-text">✨ Create Account</span>
+    </button>
+  </div>
+
+  <!-- Footer -->
+  <div class="auth-footer">
+    Your data is stored securely on your local server 🔐
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = 'http://localhost:8000/api';
+
+// ── If already logged in, redirect to app ──
+const existingToken = localStorage.getItem('habitos_token');
+if(existingToken){
+  // Verify token is still valid
+  fetch(`${API_BASE}/habits/tasks`, {
+    headers:{'Authorization': `Bearer ${existingToken}`}
+  }).then(r => {
+    if(r.ok){
+      window.location.href = 'index.html';
+    } else {
+      // Token expired, clear it
+      localStorage.removeItem('habitos_token');
+      localStorage.removeItem('habitos_user');
+    }
+  }).catch(()=>{
+    // Backend not running - still go to app (will use localStorage)
+    window.location.href = 'index.html';
+  });
+}
+
+// ── Tab switching ──
+function switchAuthTab(tab){
+  document.querySelectorAll('.auth-tab').forEach((b,i)=>
+    b.classList.toggle('active', (i===0&&tab==='signin')||(i===1&&tab==='signup'))
+  );
+  document.getElementById('panel-signin').classList.toggle('active', tab==='signin');
+  document.getElementById('panel-signup').classList.toggle('active', tab==='signup');
+  clearMessages();
+}
+
+function clearMessages(){
+  ['signin-msg','signup-msg'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.className = 'auth-msg';
+    el.style.display = 'none';
+  });
+}
+
+// ── Show message ──
+function showMsg(id, msg, type='error'){
+  const el = document.getElementById(id);
+  el.textContent = (type==='error'?'❌ ':'✅ ') + msg;
+  el.className = `auth-msg ${type}`;
+  el.style.display = 'flex';
+}
+
+// ── Toast ──
+let toastTimer;
+function showToast(msg, type=''){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+// ── Password visibility toggle ──
+function togglePw(inputId, btn){
+  const inp = document.getElementById(inputId);
+  if(inp.type === 'password'){ inp.type='text'; btn.textContent='🙈'; }
+  else { inp.type='password'; btn.textContent='👁️'; }
+}
+
+// ── Password strength checker ──
+function checkPasswordStrength(pw){
+  const wrap = document.getElementById('pw-strength');
+  const fill = document.getElementById('pw-fill');
+  const text = document.getElementById('pw-text');
+  wrap.style.display = pw.length > 0 ? 'block' : 'none';
+  if(pw.length === 0) return;
+
+  let score = 0;
+  if(pw.length >= 6) score++;
+  if(pw.length >= 10) score++;
+  if(/[A-Z]/.test(pw)) score++;
+  if(/[0-9]/.test(pw)) score++;
+  if(/[^A-Za-z0-9]/.test(pw)) score++;
+
+  const levels = [
+    {color:'#ef4444', label:'Too weak', pct:'20%'},
+    {color:'#f97316', label:'Weak', pct:'40%'},
+    {color:'#f59e0b', label:'Fair', pct:'60%'},
+    {color:'#10b981', label:'Strong', pct:'80%'},
+    {color:'#06b6d4', label:'Very strong', pct:'100%'},
+  ];
+  const l = levels[Math.min(score, levels.length-1)];
+  fill.style.background = l.color;
+  fill.style.width = l.pct;
+  text.textContent = l.label;
+  text.style.color = l.color;
+}
+
+// ── Validate signup form ──
+function validateSignupForm(){
+  const un = document.getElementById('su-username').value.trim();
+  const pw = document.getElementById('su-password').value;
+  const cf = document.getElementById('su-confirm').value;
+  const cfInp = document.getElementById('su-confirm');
+  if(cf && pw !== cf){
+    cfInp.classList.add('error');
+    cfInp.classList.remove('success');
+  } else if(cf){
+    cfInp.classList.remove('error');
+    cfInp.classList.add('success');
+  }
+}
+
+// ── Set button loading state ──
+function setLoading(btnId, loading){
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.classList.toggle('loading', loading);
+}
+
+// ── SIGN IN ──
+async function handleSignIn(){
+  const username = document.getElementById('si-username').value.trim();
+  const password = document.getElementById('si-password').value;
+
+  if(!username){ showMsg('signin-msg','Enter your username'); return; }
+  if(!password){ showMsg('signin-msg','Enter your password'); return; }
+
+  setLoading('signin-btn', true);
+  clearMessages();
+
+  try{
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username, password})
+    });
+    const data = await res.json();
+
+    if(res.ok && data.access_token){
+      localStorage.setItem('habitos_token', data.access_token);
+      localStorage.setItem('habitos_user', username);
+      showMsg('signin-msg', `Welcome back, ${username}! Redirecting...`, 'success');
+      showToast('✅ Signed in! Loading your habits...', 'success-toast');
+      setTimeout(()=> window.location.href = 'index.html', 1200);
+    } else {
+      const errMsg = data.detail || 'Invalid username or password';
+      showMsg('signin-msg', errMsg);
+      document.getElementById('si-password').classList.add('error');
+      setTimeout(()=>document.getElementById('si-password').classList.remove('error'), 2000);
+    }
+  } catch(e){
+    showMsg('signin-msg', 'Cannot connect to server. Make sure the backend is running on port 8000.');
+  }
+  setLoading('signin-btn', false);
+}
+
+// ── SIGN UP ──
+async function handleSignUp(){
+  const username = document.getElementById('su-username').value.trim();
+  const email    = document.getElementById('su-email').value.trim();
+  const password = document.getElementById('su-password').value;
+  const confirm  = document.getElementById('su-confirm').value;
+
+  if(username.length < 3){ showMsg('signup-msg','Username must be at least 3 characters'); return; }
+  if(password.length < 6){ showMsg('signup-msg','Password must be at least 6 characters'); return; }
+  if(password !== confirm){ showMsg('signup-msg','Passwords do not match'); return; }
+
+  setLoading('signup-btn', true);
+  clearMessages();
+
+  try{
+    const body = {username, password};
+    if(email) body.email = email;
+
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data = await res.json();
+
+    if(res.ok || res.status === 201){
+      showMsg('signup-msg', `Account created! Signing you in...`, 'success');
+      showToast('✅ Account created!', 'success-toast');
+      // Auto sign in after registration
+      setTimeout(async()=>{
+        const loginRes = await fetch(`${API_BASE}/auth/login`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({username, password})
+        });
+        const loginData = await loginRes.json();
+        if(loginData.access_token){
+          localStorage.setItem('habitos_token', loginData.access_token);
+          localStorage.setItem('habitos_user', username);
+          window.location.href = 'index.html';
+        }
+      }, 1000);
+    } else {
+      const errMsg = data.detail || 'Registration failed. Username may already exist.';
+      showMsg('signup-msg', typeof errMsg === 'string' ? errMsg : 'Username already taken. Try another.');
+    }
+  } catch(e){
+    showMsg('signup-msg', 'Cannot connect to server. Make sure the backend is running on port 8000.');
+  }
+  setLoading('signup-btn', false);
+}
+
+// ── Enter key support ──
+document.addEventListener('keydown', e=>{
+  if(e.key !== 'Enter') return;
+  const signinActive = document.getElementById('panel-signin').classList.contains('active');
+  if(signinActive) handleSignIn();
+  else handleSignUp();
+});
+
+// ── Pre-fill if username exists in localStorage ──
+const savedUser = localStorage.getItem('habitos_user');
+if(savedUser) document.getElementById('si-username').value = savedUser;
+</script>
+</body>
+</html>
